@@ -46,101 +46,86 @@ const roleIds = [
   "1535432094635921510"  // 1010
 ];
 
-// أيديوهات رولات Pic و Live
 const picLiveRoles = {
   'role_pic': '1535409758197260459',
   'role_live': '1535409840430645308'
 };
 
-const targetChannelId = '1535490093358252074';
+const COLOR_CHANNEL_ID = '1535490093358252074'; // روم الألوان
+const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // استبدله بأيدي روم الصور الجديد
 
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
-});
 
-client.on('messageCreate', async message => {
-  if (message.author.bot) return;
-  
-  if (message.content === '!help') {
-    // رولات الألوان
-    const row1 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('role_0').setLabel('0').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_1').setLabel('1').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_2').setLabel('2').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_3').setLabel('3').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_4').setLabel('4').setStyle(ButtonStyle.Secondary)
-    );
-
-    const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('role_5').setLabel('5').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_6').setLabel('6').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_7').setLabel('7').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_8').setLabel('8').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_9').setLabel('9').setStyle(ButtonStyle.Secondary)
-    );
-
-    const row3 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('role_10').setLabel('10').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_11').setLabel('11').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_1010').setLabel('1010').setStyle(ButtonStyle.Secondary)
-    );
-
-    // أزرار Pic و Live الجديدة
+  // --- منطق روم الصور (مرة واحدة) ---
+  const picChannel = await client.channels.fetch(PIC_LIVE_CHANNEL_ID).catch(() => null);
+  if (picChannel) {
     const rowPicLive = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('role_live').setLabel('live').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_pic').setLabel('pic').setStyle(ButtonStyle.Secondary)
     );
+    const imageUrl = 'https://cdn.discordapp.com/attachments/1535193306701504532/1535496031603662848/B0D8C494-4238-4411-9D59-979A17AEBD16.png';
+    const imageEmbed = new EmbedBuilder().setImage(imageUrl).setColor('#2b2d31');
+    await picChannel.send({ embeds: [imageEmbed], components: [rowPicLive] });
+  }
 
-    const channel = await client.channels.fetch(targetChannelId).catch(() => message.channel);
-    const imageUrl = 'https://cdn.discordapp.com/attachments/1535193306701504532/1535489425520459828/05994202-493A-4B2D-9FD9-F2D39872FC84.png';
-    
-    const imageEmbed = new EmbedBuilder()
-      .setImage(imageUrl)
-      .setColor('#2b2d31');
-
-    await channel.send({ embeds: [imageEmbed] });
-    await channel.send({ components: [rowPicLive, row1, row2, row3] });
-
+  // --- منطق روم الألوان (يتكرر كل 15 ثانية) ---
+  const colorChannel = await client.channels.fetch(COLOR_CHANNEL_ID).catch(() => null);
+  if (colorChannel) {
     setInterval(async () => {
       try {
-        const fetchedMessages = await channel.messages.fetch({ limit: 100 });
+        const fetchedMessages = await colorChannel.messages.fetch({ limit: 100 });
         for (const msg of fetchedMessages.values()) {
-          try { await msg.delete(); } catch (err) {}
+          if (msg.author.id === client.user.id && !msg.embeds.length) {
+            try { await msg.delete(); } catch (err) {}
+          }
         }
-        await channel.send({ embeds: [imageEmbed] });
-        await channel.send({ components: [rowPicLive, row1, row2, row3] });
+        const row1 = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('role_0').setLabel('0').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_1').setLabel('1').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_2').setLabel('2').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_3').setLabel('3').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_4').setLabel('4').setStyle(ButtonStyle.Secondary)
+        );
+        const row2 = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('role_5').setLabel('5').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_6').setLabel('6').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_7').setLabel('7').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_8').setLabel('8').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_9').setLabel('9').setStyle(ButtonStyle.Secondary)
+        );
+        const row3 = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('role_10').setLabel('10').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_11').setLabel('11').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_1010').setLabel('1010').setStyle(ButtonStyle.Secondary)
+        );
+        await colorChannel.send({ components: [row1, row2, row3] });
       } catch (err) {}
-    }, 15000); // تحديث كل 15 ثانية حسب طلبك
+    }, 15000);
   }
 });
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
-
   const member = interaction.member;
   const customId = interaction.customId;
 
-  // معالجة أزرار Pic و Live
   if (picLiveRoles[customId]) {
     const roleId = picLiveRoles[customId];
     const role = interaction.guild.roles.cache.get(roleId);
     const roleName = role ? role.name : (customId === 'role_pic' ? 'pic' : 'live');
-
     try {
       if (member.roles.cache.has(roleId)) {
         await member.roles.remove(roleId);
-        await interaction.reply({ content: `جاك الرول ${roleName}`, ephemeral: true });
+        await interaction.reply({ content: `تم سحب الرول ${roleName}`, ephemeral: true });
       } else {
         await member.roles.add(roleId);
         await interaction.reply({ content: `جاك الرول ${roleName}`, ephemeral: true });
       }
-    } catch (e) {
-      await interaction.reply({ content: 'حدث خطأ أثناء إعطاء الرول', ephemeral: true });
-    }
+    } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
     return;
   }
 
-  // معالجة أزرار الألوان القديمة
   const indexStr = customId.replace('role_', '');
   const index = indexStr === '1010' ? 12 : parseInt(indexStr);
   const targetRoleId = roleIds[index];
@@ -150,9 +135,7 @@ client.on('interactionCreate', async interaction => {
       const rolesToRemove = roleIds.slice(1);
       await member.roles.remove(rolesToRemove);
       await interaction.reply({ content: 'تم ازالة اللون', ephemeral: true });
-    } catch (e) {
-      await interaction.reply({ content: 'حدث خطأ', ephemeral: true });
-    }
+    } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
     return;
   }
 
@@ -167,9 +150,7 @@ client.on('interactionCreate', async interaction => {
       content: hasOtherRole ? 'تم التغيير لهذا اللون' : 'تم اختيار هذا اللون', 
       ephemeral: true 
     });
-  } catch (e) {
-    await interaction.reply({ content: 'حدث خطأ', ephemeral: true });
-  }
+  } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
 });
 
-client.login(process.env.TOKEN);
+client.client.login(process.env.TOKEN);
