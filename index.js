@@ -63,12 +63,12 @@ const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // روم الصور والل
 const IMAGE_ONLY_CHANNEL_ID = '1535490327610400810'; // روم الصور فقط
 const TELLONYM_CHANNEL_ID = '1535490429724921986'; // روم روابط التليتون
 const IMAGE_CHANNEL_ID = '1535375475289890879'; // روم إرسال الصورة الأولى
-const NEW_IMAGE_CHANNEL_ID = '1535489711420735549'; // روم إرسال الصورة الجديدة المطلوبة
+const NEW_IMAGE_CHANNEL_ID = '1535489711420735549'; // روم إرسال الصورة الثانية
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
 
-  // --- إرسال الصورة الأولى المطلوبة سابقاً ---
+  // --- إرسال الصورة الأولى ---
   const imageTargetChannel = await client.channels.fetch(IMAGE_CHANNEL_ID).catch(() => null);
   if (imageTargetChannel) {
     const fetchedImgMsgs = await imageTargetChannel.messages.fetch({ limit: 5 }).catch(() => null);
@@ -79,7 +79,7 @@ client.once('ready', async () => {
     }
   }
 
-  // --- إرسال الصورة الجديدة المطلوبة ---
+  // --- إرسال الصورة الثانية ---
   const newImageTargetChannel = await client.channels.fetch(NEW_IMAGE_CHANNEL_ID).catch(() => null);
   if (newImageTargetChannel) {
     const fetchedNewImgMsgs = await newImageTargetChannel.messages.fetch({ limit: 5 }).catch(() => null);
@@ -90,7 +90,7 @@ client.once('ready', async () => {
     }
   }
 
-  // --- منطق روم الصور واللايف (يرسل مرة واحدة فقط ولا يتكرر) ---
+  // --- منطق روم الصور واللايف ---
   const picChannel = await client.channels.fetch(PIC_LIVE_CHANNEL_ID).catch(() => null);
   if (picChannel) {
     const fetchedPicMsgs = await picChannel.messages.fetch({ limit: 10 }).catch(() => null);
@@ -111,7 +111,7 @@ client.once('ready', async () => {
     }
   }
 
-  // --- منطق روم الألوان (يحذف كل الكلام في الروم ويرسل من جديد كل 15 ثانية) ---
+  // --- منطق روم الألوان ---
   const colorChannel = await client.channels.fetch(COLOR_CHANNEL_ID).catch(() => null);
   if (colorChannel) {
     setInterval(async () => {
@@ -188,7 +188,6 @@ client.on('messageCreate', async message => {
   if (message.channel.id === IMAGE_ONLY_CHANNEL_ID) {
     const hasImage = message.attachments.size > 0 || message.embeds.length > 0 || /https?:\/\/.*\.(png|jpg|jpeg|gif|webp)/i.test(message.content);
     if (hasImage) {
-      // محاولة التفاعل بالإيموجي المخصص R_ أو كاسم نصي أو أيدي
       await message.react('R_').catch(async () => {
         const emoji = message.guild.emojis.cache.find(e => e.name === 'R_');
         if (emoji) await message.react(emoji).catch(() => {});
@@ -209,6 +208,21 @@ client.on('messageCreate', async message => {
   }
 
   const contentLower = message.content.toLowerCase().trim();
+
+  // --- نظام "امسح لي" بالأزرار التفاعلية ---
+  if (contentLower === 'امسح لي') {
+    try {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`del_all_${message.author.id}`).setLabel('الكل').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`del_num_${message.author.id}`).setLabel('عدد').setStyle(ButtonStyle.Secondary)
+      );
+      await message.reply({ content: 'اختر طريقة حذف رسائلك في هذا الروم:', components: [row] });
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
 
   // --- نظام "delete role" لحذف رول بالاسم ---
   if (contentLower.startsWith('delete role')) {
@@ -298,7 +312,7 @@ client.on('messageCreate', async message => {
     }
   }
 
-  // --- نظام "برا" (طرد من السيرفر) ---
+  // --- نظام "برا" ---
   if (command === 'برا') {
     try {
       const targetMember = await getTargetMember(message);
@@ -348,7 +362,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "اص" لتسكيت الشخص ---
+  // --- نظام "اص" ---
   if (command === 'اص') {
     try {
       const targetMember = await getTargetMember(message);
@@ -393,7 +407,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "تايم" (يتطلب رول التايم) ---
+  // --- نظام "تايم" ---
   if (command === 'تايم') {
     if (!message.member.roles.cache.has(TIME_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -436,7 +450,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "مسح" (يتطلب رول المسح) ---
+  // --- نظام "مسح" ---
   if (command === 'مسح') {
     if (!message.member.roles.cache.has(CLEAR_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -457,7 +471,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "قفل" (يتطلب رول القفل) ---
+  // --- نظام "قفل" ---
   if (command === 'قفل') {
     if (!message.member.roles.cache.has(LOCK_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -472,7 +486,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "فتح" (يتطلب رول القفل) ---
+  // --- نظام "فتح" ---
   if (command === 'فتح') {
     if (!message.member.roles.cache.has(LOCK_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -487,7 +501,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "فحص النو رول" (لأصحاب صلاحية Administrator) ---
+  // --- نظام "فحص" ---
   if (command === 'فحص') {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       return;
@@ -518,51 +532,135 @@ client.on('messageCreate', async message => {
 });
 
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isButton()) return;
-  const member = interaction.member;
-  const customId = interaction.customId;
+  if (interaction.isButton()) {
+    const member = interaction.member;
+    const customId = interaction.customId;
 
-  if (picLiveRoles[customId]) {
-    const roleId = picLiveRoles[customId];
-    const role = interaction.guild.roles.cache.get(roleId);
-    const roleName = role ? role.name : (customId === 'role_pic' ? 'pic' : 'live');
-    try {
-      if (member.roles.cache.has(roleId)) {
-        await member.roles.remove(roleId);
-        await interaction.reply({ content: `تم سحب الرول ${roleName}`, ephemeral: true });
-      } else {
-        await member.roles.add(roleId);
-        await interaction.reply({ content: `جاك الرول ${roleName}`, ephemeral: true });
+    // --- معالجة أزرار أمر "امسح لي" ---
+    if (customId.startsWith('del_all_') || customId.startsWith('del_num_')) {
+      const parts = customId.split('_');
+      const actionType = parts[1]; // all أو num
+      const targetUserId = parts[2];
+
+      if (interaction.user.id !== targetUserId) {
+        await interaction.reply({ content: 'هذا الزر ليس لك!', ephemeral: true });
+        return;
       }
-    } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
-    return;
-  }
 
-  const indexStr = customId.replace('role_', '');
-  const index = indexStr === '1010' ? 12 : parseInt(indexStr);
-  const targetRoleId = roleIds[index];
+      if (actionType === 'all') {
+        await interaction.deferUpdate();
+        try {
+          const channel = interaction.channel;
+          let fetched;
+          do {
+            fetched = await channel.messages.fetch({ limit: 100 });
+            const userMessages = fetched.filter(m => m.author.id === targetUserId);
+            if (userMessages.size > 0) {
+              await channel.bulkDelete(userMessages, true).catch(async () => {
+                for (const msg of userMessages.values()) {
+                  await msg.delete().catch(() => {});
+                }
+              });
+            }
+          } while (fetched.size >= 100);
 
-  if (index === 0) {
-    try {
-      const rolesToRemove = roleIds.slice(1);
-      await member.roles.remove(rolesToRemove);
-      await interaction.reply({ content: 'تم ازالة اللون', ephemeral: true });
-    } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
-    return;
-  }
+          await interaction.message.delete().catch(() => {});
+        } catch (e) {}
+        return;
+      }
 
-  try {
-    const rolesToRemove = roleIds.filter((id, i) => i !== index);
-    await member.roles.remove(rolesToRemove);
-    if (!member.roles.cache.has(targetRoleId)) {
-      await member.roles.add(targetRoleId);
+      if (actionType === 'num') {
+        await interaction.reply({ content: 'اكتب الآن عدد الرسائل التي تريد حذفها في هذا الروم:', ephemeral: true });
+        
+        const filter = m => m.author.id === targetUserId && m.channel.id === interaction.channel.id;
+        const collector = interaction.channel.createMessageCollector({ filter, time: 30000, max: 1 });
+
+        collector.on('collect', async msg => {
+          try {
+            await msg.delete().catch(() => {});
+            const requestedCount = parseInt(msg.content.trim());
+            if (isNaN(requestedCount) || requestedCount <= 0) return;
+
+            const channel = interaction.channel;
+            let messagesDeleted = 0;
+            let fetched;
+
+            do {
+              fetched = await channel.messages.fetch({ limit: 100 });
+              let userMessages = fetched.filter(m => m.author.id === targetUserId);
+              
+              if (userMessages.size === 0) break;
+
+              let arrayMsgs = Array.from(userMessages.values());
+              
+              // إذا كان العدد المطلوب أكبر من أو يساوي رسائله الموجودة، يُعتبر "الكل" ويحذفها كلها
+              if (requestedCount >= userMessages.size) {
+                await channel.bulkDelete(userMessages, true).catch(async () => {
+                  for (const m of userMessages.values()) {
+                    await m.delete().catch(() => {});
+                  }
+                });
+                break;
+              } else {
+                // حذف بالعدد المحدد بدقة
+                let toDelete = arrayMsgs.slice(0, requestedCount);
+                for (const m of toDelete) {
+                  await m.delete().catch(() => {});
+                }
+                break;
+              }
+            } while (true);
+
+            await interaction.message.delete().catch(() => {});
+          } catch (e) {}
+        });
+        return;
+      }
     }
-    const hasOtherRole = rolesToRemove.some(id => member.roles.cache.has(id));
-    await interaction.reply({ 
-      content: hasOtherRole ? 'تم التغيير لهذا اللون' : 'تم اختيار هذا اللون', 
-      ephemeral: true 
-    });
-  } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
+
+    // --- أزرار أدوار الصور واللايف والألوان ---
+    if (picLiveRoles[customId]) {
+      const roleId = picLiveRoles[customId];
+      const role = interaction.guild.roles.cache.get(roleId);
+      const roleName = role ? role.name : (customId === 'role_pic' ? 'pic' : 'live');
+      try {
+        if (member.roles.cache.has(roleId)) {
+          await member.roles.remove(roleId);
+          await interaction.reply({ content: `تم سحب الرول ${roleName}`, ephemeral: true });
+        } else {
+          await member.roles.add(roleId);
+          await interaction.reply({ content: `جاك الرول ${roleName}`, ephemeral: true });
+        }
+      } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
+      return;
+    }
+
+    const indexStr = customId.replace('role_', '');
+    const index = indexStr === '1010' ? 12 : parseInt(indexStr);
+    const targetRoleId = roleIds[index];
+
+    if (index === 0) {
+      try {
+        const rolesToRemove = roleIds.slice(1);
+        await member.roles.remove(rolesToRemove);
+        await interaction.reply({ content: 'تم ازالة اللون', ephemeral: true });
+      } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
+      return;
+    }
+
+    try {
+      const rolesToRemove = roleIds.filter((id, i) => i !== index);
+      await member.roles.remove(rolesToRemove);
+      if (!member.roles.cache.has(targetRoleId)) {
+        await member.roles.add(targetRoleId);
+      }
+      const hasOtherRole = rolesToRemove.some(id => member.roles.cache.has(id));
+      await interaction.reply({ 
+        content: hasOtherRole ? 'تم التغيير لهذا اللون' : 'تم اختيار هذا اللون', 
+        ephemeral: true 
+      });
+    } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
+  }
 });
 
 client.login(process.env.TOKEN);
