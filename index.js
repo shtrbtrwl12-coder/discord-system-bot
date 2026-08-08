@@ -52,23 +52,23 @@ const picLiveRoles = {
   'role_live': '1535409840430645308'
 };
 
-const MUTED_ROLE_ID = '1535504124622143508'; // أيدي رول الميوت
-const JAIL_ROLE_ID = '1535376614735609977';  // أيدي رول السجن
-const TIME_ROLE_ID = '1535522564061929512';  // أيدي رول صانع التايم
-const CLEAR_ROLE_ID = '1535523717650583602'; // أيدي رول المسح
-const LOCK_ROLE_ID = '1535523952498057338';  // أيدي رول القفل والفتح
+const MUTED_ROLE_ID = '1535504124622143508'; 
+const JAIL_ROLE_ID = '1535376614735609977';  
+const TIME_ROLE_ID = '1535522564061929512';  
+const CLEAR_ROLE_ID = '1535523717650583602'; 
+const LOCK_ROLE_ID = '1535523952498057338';  
+const NO_ROLE_ID = '1535403948121395300';   // أيدي رول النو رول المطلوب
 
-const COLOR_CHANNEL_ID = '1535406298781192292'; // روم الألوان
-const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // روم الصور واللايف
-const IMAGE_ONLY_CHANNEL_ID = '1535490327610400810'; // روم الصور فقط
-const TELLONYM_CHANNEL_ID = '1535490429724921986'; // روم روابط التليتون
-const IMAGE_CHANNEL_ID = '1535375475289890879'; // روم إرسال الصورة الأولى
-const NEW_IMAGE_CHANNEL_ID = '1535489711420735549'; // روم إرسال الصورة الثانية
+const COLOR_CHANNEL_ID = '1535406298781192292'; 
+const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; 
+const IMAGE_ONLY_CHANNEL_ID = '1535490327610400810'; 
+const TELLONYM_CHANNEL_ID = '1535490429724921986'; 
+const IMAGE_CHANNEL_ID = '1535375475289890879'; 
+const NEW_IMAGE_CHANNEL_ID = '1535489711420735549'; 
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
 
-  // --- إرسال الصورة الأولى ---
   const imageTargetChannel = await client.channels.fetch(IMAGE_CHANNEL_ID).catch(() => null);
   if (imageTargetChannel) {
     const fetchedImgMsgs = await imageTargetChannel.messages.fetch({ limit: 5 }).catch(() => null);
@@ -79,7 +79,6 @@ client.once('ready', async () => {
     }
   }
 
-  // --- إرسال الصورة الثانية ---
   const newImageTargetChannel = await client.channels.fetch(NEW_IMAGE_CHANNEL_ID).catch(() => null);
   if (newImageTargetChannel) {
     const fetchedNewImgMsgs = await newImageTargetChannel.messages.fetch({ limit: 5 }).catch(() => null);
@@ -90,7 +89,6 @@ client.once('ready', async () => {
     }
   }
 
-  // --- منطق روم الصور واللايف ---
   const picChannel = await client.channels.fetch(PIC_LIVE_CHANNEL_ID).catch(() => null);
   if (picChannel) {
     const fetchedPicMsgs = await picChannel.messages.fetch({ limit: 10 }).catch(() => null);
@@ -111,7 +109,6 @@ client.once('ready', async () => {
     }
   }
 
-  // --- منطق روم الألوان ---
   const colorChannel = await client.channels.fetch(COLOR_CHANNEL_ID).catch(() => null);
   if (colorChannel) {
     setInterval(async () => {
@@ -133,7 +130,7 @@ client.once('ready', async () => {
         const row2 = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId('role_5').setLabel('5').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('role_6').setLabel('6').setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId('`role_7').setLabel('7').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('role_7').setLabel('7').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('role_8').setLabel('8').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('role_9').setLabel('9').setStyle(ButtonStyle.Secondary)
         );
@@ -148,7 +145,6 @@ client.once('ready', async () => {
   }
 });
 
-// --- دوال مساعدة للوقت والعضو المستهدف ---
 function parseDuration(argsText) {
   if (!argsText) return 7 * 24 * 60 * 60 * 1000;
   const cleaned = argsText.replace(/\s+/g, '').toLowerCase();
@@ -181,11 +177,31 @@ async function getTargetMember(message) {
   return targetMember;
 }
 
+// --- منع إضافة أي رول لشخص معه نو رول وحماية إضافية ---
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+  if (newMember.roles.cache.has(NO_ROLE_ID)) {
+    // إذا تمت إضافة رول غير النو رول ومعه نو رول، نقوم بسحبه فوراً
+    const addedRoles = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
+    if (addedRoles.size > 0 && !addedRoles.has(NO_ROLE_ID)) {
+      for (const role of addedRoles.values()) {
+        if (role.id !== NO_ROLE_ID) {
+          await newMember.roles.remove(role).catch(() => {});
+        }
+      }
+    }
+  }
+});
+
 client.on('messageCreate', async message => {
-  // منع البوتات وتجاهل الرسائل الفارغة أو رسائل النظام التي تسبب المشكلة بالصورة
   if (message.author.bot || !message.content) return;
 
-  // --- نظام روم الصور فقط ---
+  // منع التفاعل أو الرد إذا كان العضو المرسل لديه رول النو رول
+  if (message.member && message.member.roles.cache.has(NO_ROLE_ID)) {
+    // إذا حاول الشخص الذي عليه نو رول كتابة شيء، نرد عليه بالرسالة المطلوبة
+    await message.reply("No role on it").catch(() => {});
+    return;
+  }
+
   if (message.channel.id === IMAGE_ONLY_CHANNEL_ID) {
     const hasImage = message.attachments.size > 0 || message.embeds.length > 0 || /https?:\/\/.*\.(png|jpg|jpeg|gif|webp)/i.test(message.content);
     if (hasImage) {
@@ -199,7 +215,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام روم روابط التليتون فقط ---
   if (message.channel.id === TELLONYM_CHANNEL_ID) {
     const isTellonym = /tellonym\.me/i.test(message.content);
     if (!isTellonym) {
@@ -209,6 +224,86 @@ client.on('messageCreate', async message => {
   }
 
   const contentLower = message.content.toLowerCase().trim();
+
+  // --- نظام "delete no role" لحذف النو رول ---
+  if (contentLower.startsWith('delete no role')) {
+    try {
+      const targetMember = await getTargetMember(message);
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      if (targetMember.roles.cache.has(NO_ROLE_ID)) {
+        await targetMember.roles.remove(NO_ROLE_ID);
+        await message.react('✅').catch(() => {});
+      } else {
+        await message.react('❌').catch(() => {});
+      }
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "no role" لإعطاء رول النو رول مع الأزرار ---
+  if (contentLower.startsWith('no role')) {
+    try {
+      const targetMember = await getTargetMember(message);
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`norole_1d_${targetMember.id}`).setLabel('1day').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`norole_2d_${targetMember.id}`).setLabel('2day').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`norole_3d_${targetMember.id}`).setLabel('3day').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`norole_inf_${targetMember.id}`).setLabel('∞').setStyle(ButtonStyle.Secondary)
+      );
+
+      await message.reply({ 
+        content: `Are you sure of this procedure?\nAnd how long for <@${targetMember.id}>?`, 
+        components: [row] 
+      });
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "رول" السريع (كتابة "رول" + منشن + اسم أو جزء من اسم الرول) ---
+  if (contentLower.startsWith('رول')) {
+    const argsWithoutCmd = message.content.slice(3).trim();
+    let targetMember = message.mentions.members.first();
+    
+    if (!targetMember && message.reference) {
+      try {
+        const replied = await message.channel.messages.fetch(message.reference.messageId);
+        targetMember = await message.guild.members.fetch(replied.author.id);
+      } catch (e) {}
+    }
+
+    // استخراج اسم الرول المكتوب بعد المنشن أو في النص
+    let roleQuery = argsWithoutCmd.replace(/<@!?\d+>/g, '').trim();
+
+    if (targetMember && roleQuery) {
+      try {
+        const foundRole = message.guild.roles.cache.find(r => r.name.toLowerCase().startsWith(roleQuery.toLowerCase()) || r.name.toLowerCase().includes(roleQuery.toLowerCase()));
+        if (!foundRole) {
+          await message.react('❌').catch(() => {});
+          return;
+        }
+        await targetMember.roles.add(foundRole);
+        await message.react('✅').catch(() => {});
+      } catch (e) {
+        await message.react('❌').catch(() => {});
+      }
+    } else {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
 
   // --- نظام "امسح لي" بالأزرار التفاعلية ---
   if (contentLower === 'امسح لي') {
@@ -279,7 +374,6 @@ client.on('messageCreate', async message => {
   const args = message.content.trim().split(/ +/);
   const command = args[0];
 
-  // --- نظام "باند" أو "طياره" ---
   if (command === 'باند' || command === 'طياره') {
     try {
       const targetMember = await getTargetMember(message);
@@ -295,7 +389,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "فك باند" ---
   if (command === 'فك') {
     if (args[1] === 'باند') {
       try {
@@ -313,7 +406,6 @@ client.on('messageCreate', async message => {
     }
   }
 
-  // --- نظام "برا" ---
   if (command === 'برا') {
     try {
       const targetMember = await getTargetMember(message);
@@ -329,7 +421,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "سجن" ---
   if (command === 'سجن') {
     try {
       const targetMember = await getTargetMember(message);
@@ -345,7 +436,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "لاسجن" ---
   if (command === 'لاسجن') {
     try {
       const targetMember = await getTargetMember(message);
@@ -363,7 +453,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "اص" ---
   if (command === 'اص') {
     try {
       const targetMember = await getTargetMember(message);
@@ -390,7 +479,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "تكلم" ---
   if (command === 'تكلم') {
     try {
       const targetMember = await getTargetMember(message);
@@ -408,7 +496,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "تايم" ---
   if (command === 'تايم') {
     if (!message.member.roles.cache.has(TIME_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -431,7 +518,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "لاتايم" ---
   if (command === 'لاتايم') {
     if (!message.member.roles.cache.has(TIME_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -451,7 +537,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "مسح" ---
   if (command === 'مسح') {
     if (!message.member.roles.cache.has(CLEAR_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -472,7 +557,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "قفل" ---
   if (command === 'قفل') {
     if (!message.member.roles.cache.has(LOCK_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -487,7 +571,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "فتح" ---
   if (command === 'فتح') {
     if (!message.member.roles.cache.has(LOCK_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       await message.react('❌').catch(() => {});
@@ -502,7 +585,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "فحص" ---
   if (command === 'فحص') {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       return;
@@ -537,10 +619,55 @@ client.on('interactionCreate', async interaction => {
     const member = interaction.member;
     const customId = interaction.customId;
 
+    // --- معالجة أزرار نظام "no role" المحددة ---
+    if (customId.startsWith('norole_')) {
+      const parts = customId.split('_');
+      const durationType = parts[1]; // 1d, 2d, 3d, inf
+      const targetUserId = parts[2];
+
+      try {
+        const guildMember = await interaction.guild.members.fetch(targetUserId);
+        if (guildMember) {
+          // إزالة جميع الرولز وإعطائه رول النو رول فقط (أو إضافته ومنع غيره)
+          await guildMember.roles.add(NO_ROLE_ID);
+          
+          let durationText = 'Permanent (∞)';
+          let durationMs = null;
+
+          if (durationType === '1d') {
+            durationText = '1 Day';
+            durationMs = 24 * 60 * 60 * 1000;
+          } else if (durationType === '2d') {
+            durationText = '2 Days';
+            durationMs = 2 * 24 * 60 * 60 * 1000;
+          } else if (durationType === '3d') {
+            durationText = '3 Days';
+            durationMs = 3 * 24 * 60 * 60 * 1000;
+          }
+
+          await interaction.update({ content: `Successfully applied No Role to <@${targetUserId}> for duration: **${durationText}**`, components: [] });
+
+          if (durationMs) {
+            setTimeout(async () => {
+              try {
+                const freshMember = await interaction.guild.members.fetch(targetUserId);
+                if (freshMember && freshMember.roles.cache.has(NO_ROLE_ID)) {
+                  await freshMember.roles.remove(NO_ROLE_ID);
+                }
+              } catch (e) {}
+            }, durationMs);
+          }
+        }
+      } catch (e) {
+        await interaction.reply({ content: 'حدث خطأ أثناء تطبيق الإجراء!', ephemeral: true });
+      }
+      return;
+    }
+
     // --- معالجة أزرار أمر "امسح لي" ---
     if (customId.startsWith('del_all_') || customId.startsWith('del_num_')) {
       const parts = customId.split('_');
-      const actionType = parts[1]; // all أو num
+      const actionType = parts[1]; 
       const targetUserId = parts[2];
 
       if (interaction.user.id !== targetUserId) {
@@ -616,7 +743,6 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    // --- أزرار أدوار الصور واللايف والألوان ---
     if (picLiveRoles[customId]) {
       const roleId = picLiveRoles[customId];
       const role = interaction.guild.roles.cache.get(roleId);
