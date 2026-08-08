@@ -100,7 +100,7 @@ client.on('interactionCreate', async interaction => {
   const indexStr = interaction.customId.replace('role_', '');
   const index = indexStr === '1010' ? 12 : parseInt(indexStr);
   const targetRoleId = roleIds[index];
-  The member = interaction.member;
+  const member = interaction.member;
 
   if (index === 0) {
     try {
