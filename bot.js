@@ -1,6 +1,19 @@
-
 const { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const express = require('express');
 
+// --- 1. سيرفر ويب مصغر عشان رندر يستانس وما يعطينا خطأ بورت ---
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+    res.send('Discord bot is alive and running!');
+});
+
+app.listen(PORT, () => {
+    console.log(`Web server is listening on port ${PORT}`);
+});
+
+// --- 2. إعدادات بوت الديسكورد الأساسية ---
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
