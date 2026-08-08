@@ -57,7 +57,7 @@ const JAIL_ROLE_ID = '1535376614735609977';
 const TIME_ROLE_ID = '1535522564061929512';  
 const CLEAR_ROLE_ID = '1535523717650583602'; 
 const LOCK_ROLE_ID = '1535523952498057338';  
-const NO_ROLE_ID = '1535403948121395300';   // أيدي رول النو رول المطلوب
+const NO_ROLE_ID = '1535403948121395300';   
 
 const COLOR_CHANNEL_ID = '1535406298781192292'; 
 const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; 
@@ -177,10 +177,8 @@ async function getTargetMember(message) {
   return targetMember;
 }
 
-// --- منع إضافة أي رول لشخص معه نو رول وحماية إضافية ---
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   if (newMember.roles.cache.has(NO_ROLE_ID)) {
-    // إذا تمت إضافة رول غير النو رول ومعه نو رول، نقوم بسحبه فوراً
     const addedRoles = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
     if (addedRoles.size > 0 && !addedRoles.has(NO_ROLE_ID)) {
       for (const role of addedRoles.values()) {
@@ -195,9 +193,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 client.on('messageCreate', async message => {
   if (message.author.bot || !message.content) return;
 
-  // منع التفاعل أو الرد إذا كان العضو المرسل لديه رول النو رول
   if (message.member && message.member.roles.cache.has(NO_ROLE_ID)) {
-    // إذا حاول الشخص الذي عليه نو رول كتابة شيء، نرد عليه بالرسالة المطلوبة
     await message.reply("No role on it").catch(() => {});
     return;
   }
@@ -272,7 +268,43 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "رول" السريع (كتابة "رول" + منشن + اسم أو جزء من اسم الرول) ---
+  // --- نظام "سحب رول" لسحب رول معين من العضو ---
+  if (contentLower.startsWith('سحب رول')) {
+    const argsWithoutCmd = message.content.slice(7).trim();
+    let targetMember = message.mentions.members.first();
+    
+    if (!targetMember && message.reference) {
+      try {
+        const replied = await message.channel.messages.fetch(message.reference.messageId);
+        targetMember = await message.guild.members.fetch(replied.author.id);
+      } catch (e) {}
+    }
+
+    let roleQuery = argsWithoutCmd.replace(/<@!?\d+>/g, '').trim();
+
+    if (targetMember && roleQuery) {
+      try {
+        const foundRole = message.guild.roles.cache.find(r => r.name.toLowerCase().startsWith(roleQuery.toLowerCase()) || r.name.toLowerCase().includes(roleQuery.toLowerCase()));
+        if (!foundRole) {
+          await message.react('❌').catch(() => {});
+          return;
+        }
+        if (targetMember.roles.cache.has(foundRole.id)) {
+          await targetMember.roles.remove(foundRole);
+          await message.react('✅').catch(() => {});
+        } else {
+          await message.react('❌').catch(() => {});
+        }
+      } catch (e) {
+        await message.react('❌').catch(() => {});
+      }
+    } else {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "رول" السريع لإعطاء رول ---
   if (contentLower.startsWith('رول')) {
     const argsWithoutCmd = message.content.slice(3).trim();
     let targetMember = message.mentions.members.first();
@@ -284,7 +316,6 @@ client.on('messageCreate', async message => {
       } catch (e) {}
     }
 
-    // استخراج اسم الرول المكتوب بعد المنشن أو في النص
     let roleQuery = argsWithoutCmd.replace(/<@!?\d+>/g, '').trim();
 
     if (targetMember && roleQuery) {
@@ -619,16 +650,14 @@ client.on('interactionCreate', async interaction => {
     const member = interaction.member;
     const customId = interaction.customId;
 
-    // --- معالجة أزرار نظام "no role" المحددة ---
     if (customId.startsWith('norole_')) {
       const parts = customId.split('_');
-      const durationType = parts[1]; // 1d, 2d, 3d, inf
+      const durationType = parts[1]; 
       const targetUserId = parts[2];
 
       try {
         const guildMember = await interaction.guild.members.fetch(targetUserId);
         if (guildMember) {
-          // إزالة جميع الرولز وإعطائه رول النو رول فقط (أو إضافته ومنع غيره)
           await guildMember.roles.add(NO_ROLE_ID);
           
           let durationText = 'Permanent (∞)';
@@ -664,7 +693,6 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
-    // --- معالجة أزرار أمر "امسح لي" ---
     if (customId.startsWith('del_all_') || customId.startsWith('del_num_')) {
       const parts = customId.split('_');
       const actionType = parts[1]; 
