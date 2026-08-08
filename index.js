@@ -51,7 +51,7 @@ const picLiveRoles = {
   'role_live': '1535409840430645308'
 };
 
-const COLOR_CHANNEL_ID = '1535490093358252074'; // روم الألوان
+const COLOR_CHANNEL_ID = '1535406298781192292'; // روم الألوان الجديد
 const PIC_LIVE_CHANNEL_ID = '1535406298781192292'; // روم الصور واللايف
 
 client.once('ready', async () => {
@@ -73,17 +73,20 @@ client.once('ready', async () => {
     });
   }
 
-  // --- منطق روم الألوان (يحدث كل 15 ثانية ويحذف القديم) ---
+  // --- منطق روم الألوان (يحدث كل 15 ثانية ويحذف القديم مع صورة الألوان) ---
   const colorChannel = await client.channels.fetch(COLOR_CHANNEL_ID).catch(() => null);
   if (colorChannel) {
     setInterval(async () => {
       try {
         const fetchedMessages = await colorChannel.messages.fetch({ limit: 100 });
         for (const msg of fetchedMessages.values()) {
-          if (msg.author.id === client.user.id && !msg.embeds.length && !msg.content) {
+          if (msg.author.id === client.user.id && msg.embeds.length > 0 && !msg.content) {
             try { await msg.delete(); } catch (err) {}
           }
         }
+        const colorImageUrl = 'https://cdn.discordapp.com/attachments/1535193306701504532/1535489425520459828/05994202-493A-4B2D-9FD9-F2D39872FC84.png';
+        const colorEmbed = new EmbedBuilder().setImage(colorImageUrl).setColor('#2b2d31');
+
         const row1 = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId('role_0').setLabel('0').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('role_1').setLabel('1').setStyle(ButtonStyle.Secondary),
@@ -103,7 +106,7 @@ client.once('ready', async () => {
           new ButtonBuilder().setCustomId('role_11').setLabel('11').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('role_1010').setLabel('1010').setStyle(ButtonStyle.Secondary)
         );
-        await colorChannel.send({ components: [row1, row2, row3] });
+        await colorChannel.send({ embeds: [colorEmbed], components: [row1, row2, row3] });
       } catch (err) {}
     }, 15000);
   }
