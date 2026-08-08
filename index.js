@@ -58,15 +58,18 @@ client.on('messageCreate', async message => {
       new ButtonBuilder().setCustomId('role_1').setLabel('1').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_2').setLabel('2').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_3').setLabel('3').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_4').setLabel('4').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_5').setLabel('5').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId('role_4').setLabel('4').setStyle(ButtonStyle.Secondary)
     );
 
     const row2 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('role_5').setLabel('5').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_6').setLabel('6').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_7').setLabel('7').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_8').setLabel('8').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('role_9').setLabel('9').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('role_9').setLabel('9').setStyle(ButtonStyle.Secondary)
+    );
+
+    const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('role_10').setLabel('10').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_11').setLabel('11').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_1010').setLabel('1010').setStyle(ButtonStyle.Secondary)
@@ -74,7 +77,7 @@ client.on('messageCreate', async message => {
 
     const channel = message.channel;
 
-    await channel.send({ content: ' ', components: [row1, row2] });
+    await channel.send({ content: ' ', components: [row1, row2, row3] });
 
     setInterval(async () => {
       try {
@@ -82,7 +85,7 @@ client.on('messageCreate', async message => {
         for (const msg of fetchedMessages.values()) {
           try { await msg.delete(); } catch (err) {}
         }
-        await channel.send({ content: ' ', components: [row1, row2] });
+        await channel.send({ content: ' ', components: [row1, row2, row3] });
       } catch (err) {}
     }, 30000);
   }
