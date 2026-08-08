@@ -51,6 +51,7 @@ const picLiveRoles = {
   'role_live': '1535409840430645308'
 };
 
+const MUTED_ROLE_ID = '1535504124622143508'; // أيدي رول الميوت
 const COLOR_CHANNEL_ID = '1535406298781192292'; // روم الألوان
 const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // روم الصور واللايف
 
@@ -112,6 +113,86 @@ client.once('ready', async () => {
         await colorChannel.send({ embeds: [colorEmbed], components: [row1, row2, row3] });
       } catch (err) {}
     }, 15000);
+  }
+});
+
+// --- دالة تحويل صيغ الوقت إلى ميلي ثانية ---
+function parseDuration(argsText) {
+  if (!argsText) return 24 * 60 * 60 * 1000; // الافتراضي 24 ساعة لو ما حدد
+  
+  // دمج المسافات بين الرقم والحرف مثل "5 m" إلى "5m" أو دعم التنسيقات المختلفة
+  const cleaned = argsText.replace(/\s+/g, '').toLowerCase();
+  const match = cleaned.match(/^(\d+)([smhdwy]|day|week|month)?$/);
+  
+  if (!match) return 24 * 60 * 60 * 1000;
+
+  const value = parseInt(match[1]);
+  const unit = match[2];
+
+  if (!unit || unit === 's') return value * 1000;
+  if (unit === 'm') return value * 60 * 1000;
+  if (unit === 'h') return value * 60 * 60 * 1000;
+  if (unit === 'd' || unit === 'day') return value * 24 * 60 * 60 * 1000;
+  if (unit === 'w' || unit === 'week') return value * 7 * 24 * 60 * 60 * 1000;
+  if (unit === 'y') return value * 365 * 24 * 60 * 60 * 1000;
+
+  return 24 * 60 * 60 * 1000;
+}
+
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+
+  const args = message.content.trim().split(/ +/);
+  const command = args[0];
+
+  // --- نظام "اص" لتسكيت الشخص ---
+  if (command === 'اص') {
+    try {
+      const targetMember = message.mentions.members.first();
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+
+      // استخراج النص المتبقي بعد المنشن لمعرفة الوقت
+      const contentWithoutMention = message.content.replace(/<@!?\d+>/g, '').replace('اص', '').trim();
+      const durationMs = parseDuration(contentWithoutMention);
+
+      await targetMember.roles.add(MUTED_ROLE_ID);
+      await message.react('✅').catch(() => {});
+
+      // فك الميوت تلقائياً بعد انتهاء الوقت
+      setTimeout(async () => {
+        try {
+          if (targetMember.roles.cache.has(MUTED_ROLE_ID)) {
+            await targetMember.roles.remove(MUTED_ROLE_ID);
+          }
+        } catch (e) {}
+      }, durationMs);
+
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "تكلم" لفك الميوت فوراً ---
+  if (command === 'تكلم') {
+    try {
+      const targetMember = message.mentions.members.first();
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+
+      if (targetMember.roles.cache.has(MUTED_ROLE_ID)) {
+        await targetMember.roles.remove(MUTED_ROLE_ID);
+      }
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
   }
 });
 
