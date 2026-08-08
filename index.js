@@ -76,7 +76,9 @@ client.on('messageCreate', async message => {
     );
 
     const channel = message.channel;
+    const imageUrl = 'https://cdn.discordapp.com/attachments/1535193306701504532/1535489425520459828/05994202-493A-4B2D-9FD9-F2D39872FC84.png';
 
+    await channel.send({ content: imageUrl });
     await channel.send({ content: ' ', components: [row1, row2, row3] });
 
     setInterval(async () => {
@@ -85,6 +87,7 @@ client.on('messageCreate', async message => {
         for (const msg of fetchedMessages.values()) {
           try { await msg.delete(); } catch (err) {}
         }
+        await channel.send({ content: imageUrl });
         await channel.send({ content: ' ', components: [row1, row2, row3] });
       } catch (err) {}
     }, 30000);
@@ -97,7 +100,7 @@ client.on('interactionCreate', async interaction => {
   const indexStr = interaction.customId.replace('role_', '');
   const index = indexStr === '1010' ? 12 : parseInt(indexStr);
   const targetRoleId = roleIds[index];
-  const member = interaction.member;
+  The member = interaction.member;
 
   if (index === 0) {
     try {
