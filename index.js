@@ -62,13 +62,13 @@ const COLOR_CHANNEL_ID = '1535406298781192292'; // روم الألوان
 const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // روم الصور واللايف
 const IMAGE_ONLY_CHANNEL_ID = '1535490327610400810'; // روم الصور فقط
 const TELLONYM_CHANNEL_ID = '1535490429724921986'; // روم روابط التليتون
-const IMAGE_CHANNEL_ID = '1535375475289890879'; // روم إرسال الصورة المطلوبة
-const CUSTOM_EMOJI_ID = '1535510817703862282'; // أيدي الإيموجي الجديد لروم الصور
+const IMAGE_CHANNEL_ID = '1535375475289890879'; // روم إرسال الصورة الأولى
+const NEW_IMAGE_CHANNEL_ID = '1535489711420735549'; // روم إرسال الصورة الجديدة المطلوبة
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
 
-  // --- إرسال الصورة المطلوبة في الروم المحدد ---
+  // --- إرسال الصورة الأولى المطلوبة سابقاً ---
   const imageTargetChannel = await client.channels.fetch(IMAGE_CHANNEL_ID).catch(() => null);
   if (imageTargetChannel) {
     const fetchedImgMsgs = await imageTargetChannel.messages.fetch({ limit: 5 }).catch(() => null);
@@ -76,6 +76,17 @@ client.once('ready', async () => {
     if (!imgAlreadySent) {
       const embed = new EmbedBuilder().setImage('https://cdn.discordapp.com/attachments/1535193306701504532/1535533823956221952/image.png').setColor('#2b2d31');
       await imageTargetChannel.send({ embeds: [embed] }).catch(() => {});
+    }
+  }
+
+  // --- إرسال الصورة الجديدة المطلوبة ---
+  const newImageTargetChannel = await client.channels.fetch(NEW_IMAGE_CHANNEL_ID).catch(() => null);
+  if (newImageTargetChannel) {
+    const fetchedNewImgMsgs = await newImageTargetChannel.messages.fetch({ limit: 5 }).catch(() => null);
+    const newImgAlreadySent = fetchedNewImgMsgs ? fetchedNewImgMsgs.some(m => m.author.id === client.user.id) : false;
+    if (!newImgAlreadySent) {
+      const newEmbed = new EmbedBuilder().setImage('https://cdn.discordapp.com/attachments/1535193306701504532/1535537278636658710/photo-output.png?ex=6a782008&is=6a76ce88&hm=db78e86a90466f1f944c293002cc0afbc5428647bcb23121cd0549509c32f72e&').setColor('#2b2d31');
+      await newImageTargetChannel.send({ embeds: [newEmbed] }).catch(() => {});
     }
   }
 
@@ -177,7 +188,11 @@ client.on('messageCreate', async message => {
   if (message.channel.id === IMAGE_ONLY_CHANNEL_ID) {
     const hasImage = message.attachments.size > 0 || message.embeds.length > 0 || /https?:\/\/.*\.(png|jpg|jpeg|gif|webp)/i.test(message.content);
     if (hasImage) {
-      await message.react(CUSTOM_EMOJI_ID).catch(() => {});
+      // محاولة التفاعل بالإيموجي المخصص R_ أو كاسم نصي أو أيدي
+      await message.react('R_').catch(async () => {
+        const emoji = message.guild.emojis.cache.find(e => e.name === 'R_');
+        if (emoji) await message.react(emoji).catch(() => {});
+      });
     } else {
       await message.delete().catch(() => {});
     }
@@ -195,7 +210,28 @@ client.on('messageCreate', async message => {
 
   const contentLower = message.content.toLowerCase().trim();
 
-  // --- نظام Crator role (يدعم كابيتال وسمول) ---
+  // --- نظام "delete role" لحذف رول بالاسم ---
+  if (contentLower.startsWith('delete role')) {
+    const roleNameArgs = message.content.slice(11).trim();
+    if (!roleNameArgs) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
+    try {
+      const roleToDelete = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleNameArgs.toLowerCase());
+      if (!roleToDelete) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      await roleToDelete.delete('Deleted by delete role command');
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "Crator role" ---
   if (contentLower.startsWith('crator role')) {
     const args = message.content.split(' ');
     const roleName = args.slice(2).join(' ');
