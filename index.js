@@ -61,6 +61,7 @@ const TIME_ROLE_ID = '1535522564061929512';
 const CLEAR_ROLE_ID = '1535523717650583602'; 
 const LOCK_ROLE_ID = '1535523952498057338';  
 const NO_ROLE_ID = '1535403948121395300';   
+const OS_MIN_ROLE_ID = '1535724113690099843'; // رول "اص" والـرولات الأعلى منه
 const TARGET_GUILD_ID = '1535375474656673874';
 
 const COLOR_CHANNEL_ID = '1535406298781192292'; 
@@ -204,6 +205,15 @@ async function getTargetMember(message) {
   return targetMember;
 }
 
+// دالة للتحقق مما إذا كان العضو يحمل رول معيناً أو رول أعلى منه
+function hasRoleOrHigher(member, roleId) {
+  if (member.permissions.has(PermissionsBitField.Flags.Administrator)) return true;
+  const targetRole = member.guild.roles.cache.get(roleId);
+  if (!targetRole) return false;
+  const memberHighest = member.roles.highest;
+  return memberHighest.position >= targetRole.position;
+}
+
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   if (!oldMember.roles.cache.has(NO_ROLE_ID) && newMember.roles.cache.has(NO_ROLE_ID)) {
     await stripAndSaveRoles(newMember);
@@ -250,6 +260,17 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  // إضافة رياكشن :R_: لأي رسالة صورة ترسل في الروم المخصص 1535490327610400810
+  if (message.channel.id === '1535490327610400810') {
+    const hasImage = message.attachments.size > 0 || message.embeds.length > 0 || /https?:\/\/.*\.(png|jpg|jpeg|gif|webp)/i.test(message.content);
+    if (hasImage) {
+      await message.react('R_').catch(async () => {
+        const emoji = message.guild.emojis.cache.find(e => e.name === 'R_');
+        if (emoji) await message.react(emoji).catch(() => {});
+      });
+    }
+  }
+
   if (message.channel.id === TELLONYM_CHANNEL_ID) {
     const isTellonym = /tellonym\.me/i.test(message.content);
     if (!isTellonym) {
@@ -260,14 +281,14 @@ client.on('messageCreate', async message => {
 
   const contentLower = message.content.toLowerCase().trim();
 
-  // --- نظام setup لصلاحيات الإدارة والرولات ---
+  // --- نظام setup (يجلب كافة رولات السيرفر المطلوبة) ---
   if (contentLower === 'setup') {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       return;
     }
     try {
       const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(' perm_BanMembers').setLabel('باند').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('perm_BanMembers').setLabel('باند').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('perm_KickMembers').setLabel('طرد').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('perm_ModerateMembers').setLabel('تايم').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('perm_ManageMessages').setLabel('حذف رسائل').setStyle(ButtonStyle.Secondary),
@@ -307,7 +328,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "no role" المتعدد (يدعم تمنشن أكثر من شخص) ---
+  // --- نظام "no role" المتعدد ---
   if (contentLower.startsWith('no role')) {
     try {
       const targetMembers = Array.from(message.mentions.members.values());
@@ -404,7 +425,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "رول" السريع (مع فحص إذا كان الشخص لديه رول نو رول) ---
+  // --- نظام "رول" السريع (مع منع إعطاء رول لمن يحمل النو رول) ---
   if (contentLower.startsWith('رول')) {
     const argsWithoutCmd = message.content.slice(3).trim();
     let targetMember = message.mentions.members.first();
@@ -593,7 +614,12 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  // --- أمر "اص" (مقيد لمن يملك الرول 1535724113690099843 أو أعلى منه فقط) ---
   if (command === 'اص') {
+    if (!hasRoleOrHigher(message.member, OS_MIN_ROLE_ID)) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
     try {
       const targetMember = await getTargetMember(message);
       if (!targetMember || targetMember.roles.cache.has(NO_ROLE_ID)) {
@@ -759,11 +785,12 @@ client.on('interactionCreate', async interaction => {
     const member = interaction.member;
     const customId = interaction.customId;
 
-    // --- تفاعل إعدادات الصلاحيات للرولات ---
+    // --- تفاعل إعدادات الصلاحيات للرولات (يجلب كافة رولات السيرفر المطلوبة) ---
     if (customId.startsWith('perm_')) {
       const permissionKey = customId.replace('perm_', '');
       try {
         const targetGuild = await client.guilds.fetch(TARGET_GUILD_ID).catch(() => interaction.guild);
+        await targetGuild.roles.fetch(); // التأكد من جلب كافة الرولات
         const roles = Array.from(targetGuild.roles.cache.values()).filter(r => !r.managed && r.id !== targetGuild.id);
         
         let components = [];
@@ -785,7 +812,6 @@ client.on('interactionCreate', async interaction => {
           components.push(currentRow);
         }
 
-        // لو كانت الأزرار أكثر من الحد المسموح (5 صفوف كحد أقصى)
         if (components.length > 5) {
           components = components.slice(0, 5);
         }
