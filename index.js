@@ -268,6 +268,36 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  // --- نظام "فحص النو رول" المحدث ---
+  if (contentLower === 'فحص النو رول') {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return;
+    }
+    try {
+      await message.guild.members.fetch();
+      const membersWithNoRole = message.guild.members.cache.filter(m => !m.user.bot && m.roles.cache.has(NO_ROLE_ID));
+      
+      if (membersWithNoRole.size === 0) {
+        await message.reply("don’t have no role");
+        await message.react('❌').catch(() => {});
+        return;
+      }
+
+      const sortedMembers = Array.from(membersWithNoRole.values()).sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
+
+      let responseText = "";
+      sortedMembers.forEach((m, index) => {
+        responseText += `${index + 1}- <@${m.id}>\n`;
+      });
+
+      await message.reply(responseText);
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
   // --- نظام "سحب رول" لسحب رول معين من العضو ---
   if (contentLower.startsWith('سحب رول')) {
     const argsWithoutCmd = message.content.slice(7).trim();
