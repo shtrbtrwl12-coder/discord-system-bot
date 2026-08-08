@@ -133,7 +133,7 @@ client.once('ready', async () => {
         const row2 = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId('role_5').setLabel('5').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('role_6').setLabel('6').setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId('role_7').setLabel('7').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('`role_7').setLabel('7').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('role_8').setLabel('8').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('role_9').setLabel('9').setStyle(ButtonStyle.Secondary)
         );
@@ -182,7 +182,8 @@ async function getTargetMember(message) {
 }
 
 client.on('messageCreate', async message => {
-  if (message.author.bot) return;
+  // منع البوتات وتجاهل الرسائل الفارغة أو رسائل النظام التي تسبب المشكلة بالصورة
+  if (message.author.bot || !message.content) return;
 
   // --- نظام روم الصور فقط ---
   if (message.channel.id === IMAGE_ONLY_CHANNEL_ID) {
@@ -582,7 +583,6 @@ client.on('interactionCreate', async interaction => {
             if (isNaN(requestedCount) || requestedCount <= 0) return;
 
             const channel = interaction.channel;
-            let messagesDeleted = 0;
             let fetched;
 
             do {
@@ -593,7 +593,6 @@ client.on('interactionCreate', async interaction => {
 
               let arrayMsgs = Array.from(userMessages.values());
               
-              // إذا كان العدد المطلوب أكبر من أو يساوي رسائله الموجودة، يُعتبر "الكل" ويحذفها كلها
               if (requestedCount >= userMessages.size) {
                 await channel.bulkDelete(userMessages, true).catch(async () => {
                   for (const m of userMessages.values()) {
@@ -602,7 +601,6 @@ client.on('interactionCreate', async interaction => {
                 });
                 break;
               } else {
-                // حذف بالعدد المحدد بدقة
                 let toDelete = arrayMsgs.slice(0, requestedCount);
                 for (const m of toDelete) {
                   await m.delete().catch(() => {});
