@@ -29,8 +29,6 @@ const client = new Client({
   partials: [Partials.Channel, Partials.Message, Partials.GuildMember]
 });
 
-const COLOR_CHANNEL_ID = "1535406298781192292";
-
 const roleIds = [
   "1535430257316864152", // 0
   "1535430309326233772", // 1
@@ -55,8 +53,6 @@ client.on('messageCreate', async message => {
   if (message.author.bot) return;
   
   if (message.content === '!help') {
-    if (message.channel.id !== COLOR_CHANNEL_ID) return;
-
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('role_0').setLabel('0').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('role_1').setLabel('1').setStyle(ButtonStyle.Secondary),
@@ -94,7 +90,6 @@ client.on('messageCreate', async message => {
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
-  if (interaction.channel.id !== COLOR_CHANNEL_ID) return;
 
   const indexStr = interaction.customId.replace('role_', '');
   const index = indexStr === '1010' ? 12 : parseInt(indexStr);
