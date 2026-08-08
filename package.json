@@ -2,9 +2,9 @@
   "name": "discord-system-bot",
   "version": "1.0.0",
   "description": "System and moderation bot",
-  "main": "bot.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node bot.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
