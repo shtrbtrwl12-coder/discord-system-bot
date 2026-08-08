@@ -52,6 +52,7 @@ const picLiveRoles = {
 };
 
 const MUTED_ROLE_ID = '1535504124622143508'; // أيدي رول الميوت
+const JAIL_ROLE_ID = '1535376614735609977';  // أيدي رول السجن
 const COLOR_CHANNEL_ID = '1535406298781192292'; // روم الألوان
 const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // روم الصور واللايف
 
@@ -120,7 +121,6 @@ client.once('ready', async () => {
 function parseDuration(argsText) {
   if (!argsText) return 24 * 60 * 60 * 1000; // الافتراضي 24 ساعة لو ما حدد
   
-  // دمج المسافات بين الرقم والحرف مثل "5 m" إلى "5m" أو دعم التنسيقات المختلفة
   const cleaned = argsText.replace(/\s+/g, '').toLowerCase();
   const match = cleaned.match(/^(\d+)([smhdwy]|day|week|month)?$/);
   
@@ -139,24 +139,72 @@ function parseDuration(argsText) {
   return 24 * 60 * 60 * 1000;
 }
 
+// دالة مساعدة للحصول على العضو المستهدف سواء بالمنشن أو بالرد على رسالة
+async function getTargetMember(message) {
+  let targetMember = message.mentions.members.first();
+  if (!targetMember && message.reference) {
+    try {
+      const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+      if (repliedMessage) {
+        targetMember = await message.guild.members.fetch(repliedMessage.author.id);
+      }
+    } catch (e) {}
+  }
+  return targetMember;
+}
+
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
   const args = message.content.trim().split(/ +/);
   const command = args[0];
 
-  // --- نظام "اص" لتسكيت الشخص ---
+  // --- نظام "سجن" ---
+  if (command === 'سجن') {
+    try {
+      const targetMember = await getTargetMember(message);
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      await targetMember.roles.add(JAIL_ROLE_ID);
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "لاسجن" ---
+  if (command === 'لاسجن') {
+    try {
+      const targetMember = await getTargetMember(message);
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      if (targetMember.roles.cache.has(JAIL_ROLE_ID)) {
+        await targetMember.roles.remove(JAIL_ROLE_ID);
+      }
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "اص" لتسكيت الشخص (يدعم المنشن أو الرد) ---
   if (command === 'اص') {
     try {
-      const targetMember = message.mentions.members.first();
+      const targetMember = await getTargetMember(message);
       if (!targetMember) {
         await message.react('❌').catch(() => {});
         return;
       }
 
-      // استخراج النص المتبقي بعد المنشن لمعرفة الوقت
-      const contentWithoutMention = message.content.replace(/<@!?\d+>/g, '').replace('اص', '').trim();
-      const durationMs = parseDuration(contentWithoutMention);
+      // استخراج النص المتبقي بعد المنشن أو الأمر لمعرفة الوقت
+      let contentWithoutCommand = message.content.replace('اص', '').replace(/<@!?\d+>/g, '').trim();
+      const durationMs = parseDuration(contentWithoutCommand);
 
       await targetMember.roles.add(MUTED_ROLE_ID);
       await message.react('✅').catch(() => {});
@@ -176,10 +224,10 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "تكلم" لفك الميوت فوراً ---
+  // --- نظام "تكلم" لفك الميوت فوراً (يدعم المنشن أو الرد) ---
   if (command === 'تكلم') {
     try {
-      const targetMember = message.mentions.members.first();
+      const targetMember = await getTargetMember(message);
       if (!targetMember) {
         await message.react('❌').catch(() => {});
         return;
