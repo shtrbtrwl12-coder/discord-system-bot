@@ -52,6 +52,9 @@ const picLiveRoles = {
   'role_live': '1535409840430645308'
 };
 
+// خريطة لتسجيل رسائل الأعضاء للحماية من السبام
+const userMessageLogs = new Map();
+
 const MUTED_ROLE_ID = '1535504124622143508'; 
 const JAIL_ROLE_ID = '1535376614735609977';  
 const TIME_ROLE_ID = '1535522564061929512';  
@@ -65,6 +68,14 @@ const IMAGE_ONLY_CHANNEL_ID = '1535490327610400810';
 const TELLONYM_CHANNEL_ID = '1535490429724921986'; 
 const IMAGE_CHANNEL_ID = '1535375475289890879'; 
 const NEW_IMAGE_CHANNEL_ID = '1535489711420735549'; 
+
+// دالة سحب جميع الرولات عدا النو رول ورول السيرفر الأساسي
+async function stripRoles(member) {
+  try {
+    const rolesToRemove = member.roles.cache.filter(r => r.id !== NO_ROLE_ID && r.id !== member.guild.id);
+    await member.roles.remove(rolesToRemove);
+  } catch (e) { console.error("Error stripping roles:", e); }
+}
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -178,20 +189,36 @@ async function getTargetMember(message) {
 }
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
-  if (newMember.roles.cache.has(NO_ROLE_ID)) {
-    const addedRoles = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
-    if (addedRoles.size > 0 && !addedRoles.has(NO_ROLE_ID)) {
-      for (const role of addedRoles.values()) {
-        if (role.id !== NO_ROLE_ID) {
-          await newMember.roles.remove(role).catch(() => {});
-        }
-      }
-    }
+  if (!oldMember.roles.cache.has(NO_ROLE_ID) && newMember.roles.cache.has(NO_ROLE_ID)) {
+    await stripRoles(newMember);
   }
 });
 
 client.on('messageCreate', async message => {
-  if (message.author.bot || !message.content) return;
+  if (message.author.bot) return;
+
+  // نظام الحماية من السبام (5 رسائل متتالية بسرعة)
+  const userId = message.author.id;
+  const now = Date.now();
+  
+  if (!userMessageLogs.has(userId)) {
+    userMessageLogs.set(userId, []);
+  }
+  
+  const timestamps = userMessageLogs.get(userId);
+  const windowMs = 5000; 
+  const recentMessages = timestamps.filter(timestamp => now - timestamp < windowMs);
+  
+  recentMessages.push(now);
+  userMessageLogs.set(userId, recentMessages);
+
+  if (recentMessages.length >= 5) {
+    userMessageLogs.set(userId, []);
+    await message.reply("انت تكتب بسرعه !").catch(() => {});
+    return;
+  }
+
+  if (!message.content) return;
 
   if (message.member && message.member.roles.cache.has(NO_ROLE_ID)) {
     await message.reply("No role on it").catch(() => {});
@@ -689,6 +716,7 @@ client.on('interactionCreate', async interaction => {
         const guildMember = await interaction.guild.members.fetch(targetUserId);
         if (guildMember) {
           await guildMember.roles.add(NO_ROLE_ID);
+          await stripRoles(guildMember); // سحب كافة الرولات فوراً عند التطبيق بالأزرار
           
           let durationText = 'Permanent (∞)';
           let durationMs = null;
