@@ -245,7 +245,6 @@ client.on('messageCreate', async message => {
   }
 
   if (!message.content) {
-    // إذا كانت الرسالة بدون نص وتحتوي على مرفق صورة في روم الصور، يتم تفاعلها مباشرة
     if (message.channel.id === IMAGE_ONLY_CHANNEL_ID || message.channel.id === '1535490327610400810') {
       if (message.attachments.size > 0 || message.embeds.length > 0) {
         await message.react('R_').catch(async () => {
@@ -270,7 +269,6 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // التعديل هنا: التفاعل يتم إذا كان هناك مرفق صورة أو محتوى صورة (سواء كتب كلام معها أو لا)
   if (message.channel.id === '1535490327610400810') {
     const hasImage = message.attachments.size > 0 || message.embeds.length > 0 || /https?:\/\/.*\.(png|jpg|jpeg|gif|webp)/i.test(message.content);
     if (hasImage) {
@@ -790,12 +788,35 @@ client.on('interactionCreate', async interaction => {
       try {
         const targetGuild = await client.guilds.fetch(TARGET_GUILD_ID).catch(() => interaction.guild);
         await targetGuild.roles.fetch(); 
-        const roles = Array.from(targetGuild.roles.cache.values()).filter(r => !r.managed && r.id !== targetGuild.id);
+        
+        const rawRoleIds = [
+          "1535723352788836373", "1535720065947668500", "1535723556426481757", "1535720365127376897",
+          "1535714293784248372", "1535714856009732179", "1535716348947079322", "1535715700654604429",
+          "1535522564061929512", "1535724113690099843", "1535716161197576212", "1535718418664136845",
+          "1535718767777030237", "1535714783259787366", "1535718216037568623", "1535720112542187560",
+          "1535724553563668561", "1535713852447133786", "1535714387942445246", "1535723441540567050",
+          "1535720208671440988", "1535716064921653299", "1535724156791029801", "1535723664874676286",
+          "1535722204627599391", "1535718917807538226", "1535722539706220604", "1535719311992164442",
+          "1535720258655227966", "1535723508389257397", "1535714487565291520", "1535719233655275731",
+          "1535715153885007912", "1535718823301480628", "1535722303550132284", "1535723262204452966",
+          "1535719977351389304", "1535713953165090847", "1535722345975775323", "1535724212222959777",
+          "1535718964683087963", "1535720023384002630", "1535723308539187352", "1535715359477203014",
+          "1535716253451288647", "1535715789187842258", "1535718336585924608", "1535723397231943832",
+          "1535720158092460052", "1535722385175748669", "1535722454218178580", "1535719144052232212",
+          "1535719187861864569", "1535722498933530674", "1535719622400020722", "1535719270250713161",
+          "1535722615925248151", "1535722725706825889", "1535719507727880273", "1535722243542360105",
+          "1535714949085794456", "1535723709929623675", "1535722173283573760", "1535723604078239784",
+          "1535715241739026433", "1535718512683913276", "1535722770414051328", "1535719580167831583"
+        ];
+        
+        const uniqueRoleIds = [...new Set(rawRoleIds)];
+
+        const roles = uniqueRoleIds.map(id => targetGuild.roles.cache.get(id)).filter(r => r !== undefined);
         
         let components = [];
         let currentRow = new ActionRowBuilder();
         
-        roles.forEach((role, idx) => {
+        roles.forEach((role) => {
           if (currentRow.components.length >= 5) {
             components.push(currentRow);
             currentRow = new ActionRowBuilder();
@@ -815,7 +836,7 @@ client.on('interactionCreate', async interaction => {
           components = components.slice(0, 5);
         }
 
-        await interaction.update({ content: `اختر الرول لإعطائه صلاحية **${permissionKey}**:`, components: components });
+        await interaction.update({ content: `اختر الرول لإعطائه صلاحية **${permissionKey}** (سيتم تطبيقها عليه وعلى جميع الرولات التي فوقه تلقائياً):`, components: components });
       } catch (e) {
         await interaction.reply({ content: 'حدث خطأ أثناء جلب الرولات!', ephemeral: true });
       }
@@ -829,19 +850,30 @@ client.on('interactionCreate', async interaction => {
 
       try {
         const targetGuild = await client.guilds.fetch(TARGET_GUILD_ID).catch(() => interaction.guild);
-        const role = targetGuild.roles.cache.get(roleId);
-        if (!role) {
+        const selectedRole = targetGuild.roles.cache.get(roleId);
+        if (!selectedRole) {
           await interaction.reply({ content: 'لم يتم العثور على الرول!', ephemeral: true });
           return;
         }
 
-        const currentPerms = role.permissions;
-        const newPerms = currentPerms.add(PermissionsBitField.Flags[permName]);
-        await role.setPermissions(newPerms);
+        // جلب جميع الرولات في السيرفر وتصفية الرولات التي تساوي أو تقع فوق الرول المحدد
+        const rolesToUpdate = targetGuild.roles.cache.filter(r => r.position >= selectedRole.position);
 
-        await interaction.update({ content: `تم بنجاح إعطاء صلاحية **${permName}** لرول **${role.name}**!`, components: [] });
+        let updatedCount = 0;
+        for (const role of rolesToUpdate.values()) {
+          try {
+            const currentPerms = role.permissions;
+            if (!currentPerms.has(PermissionsBitField.Flags[permName])) {
+              const newPerms = currentPerms.add(PermissionsBitField.Flags[permName]);
+              await role.setPermissions(newPerms);
+              updatedCount++;
+            }
+          } catch (err) {}
+        }
+
+        await interaction.update({ content: `تم بنجاح إعطاء صلاحية **${permName}** لرول **${selectedRole.name}** وكل الرولات التي فوقه (${updatedCount} رول)!`, components: [] });
       } catch (e) {
-        await interaction.reply({ content: 'حدث خطأ أثناء تعديل صلاحيات الرول!', ephemeral: true });
+        await interaction.reply({ content: 'حدث خطأ أثناء تعديل صلاحيات الرولات!', ephemeral: true });
       }
       return;
     }
