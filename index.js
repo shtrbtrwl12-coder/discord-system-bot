@@ -55,6 +55,9 @@ const picLiveRoles = {
 // خريطة لتسجيل رسائل الأعضاء للحماية من السبام
 const userMessageLogs = new Map();
 
+// خريطة لتخزين رولات الأعضاء قبل أخذهم "نو رول" لإرجاعها لاحقاً
+const savedRolesMap = new Map();
+
 const MUTED_ROLE_ID = '1535504124622143508'; 
 const JAIL_ROLE_ID = '1535376614735609977';  
 const TIME_ROLE_ID = '1535522564061929512';  
@@ -69,12 +72,29 @@ const TELLONYM_CHANNEL_ID = '1535490429724921986';
 const IMAGE_CHANNEL_ID = '1535375475289890879'; 
 const NEW_IMAGE_CHANNEL_ID = '1535489711420735549'; 
 
-// دالة سحب جميع الرولات عدا النو رول ورول السيرفر الأساسي
-async function stripRoles(member) {
+// دالة حفظ رولات العضو ثم سحبها عدا النو رول ورول السيرفر الأساسي
+async function stripAndSaveRoles(member) {
   try {
+    const rolesToSave = member.roles.cache
+      .filter(r => r.id !== NO_ROLE_ID && r.id !== member.guild.id)
+      .map(r => r.id);
+    
+    savedRolesMap.set(member.id, rolesToSave);
+
     const rolesToRemove = member.roles.cache.filter(r => r.id !== NO_ROLE_ID && r.id !== member.guild.id);
     await member.roles.remove(rolesToRemove);
   } catch (e) { console.error("Error stripping roles:", e); }
+}
+
+// دالة إعادة الرولات المحفوظة للعضو
+async function restoreRoles(member) {
+  try {
+    const savedRoles = savedRolesMap.get(member.id);
+    if (savedRoles && savedRoles.length > 0) {
+      await member.roles.add(savedRoles).catch(() => {});
+      savedRolesMap.delete(member.id);
+    }
+  } catch (e) { console.error("Error restoring roles:", e); }
 }
 
 client.once('ready', async () => {
@@ -190,7 +210,9 @@ async function getTargetMember(message) {
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   if (!oldMember.roles.cache.has(NO_ROLE_ID) && newMember.roles.cache.has(NO_ROLE_ID)) {
-    await stripRoles(newMember);
+    await stripAndSaveRoles(newMember);
+  } else if (oldMember.roles.cache.has(NO_ROLE_ID) && !newMember.roles.cache.has(NO_ROLE_ID)) {
+    await restoreRoles(newMember);
   }
 });
 
@@ -258,6 +280,7 @@ client.on('messageCreate', async message => {
       }
       if (targetMember.roles.cache.has(NO_ROLE_ID)) {
         await targetMember.roles.remove(NO_ROLE_ID);
+        // تم إزالة رول النو رول هنا، وسيتم إرجاع رولاته عبر حدث guildMemberUpdate تلقائياً
         await message.react('✅').catch(() => {});
       } else {
         await message.react('❌').catch(() => {});
@@ -716,7 +739,7 @@ client.on('interactionCreate', async interaction => {
         const guildMember = await interaction.guild.members.fetch(targetUserId);
         if (guildMember) {
           await guildMember.roles.add(NO_ROLE_ID);
-          await stripRoles(guildMember); // سحب كافة الرولات فوراً عند التطبيق بالأزرار
+          // سيتم حفظ الرولات وسحبها تلقائياً عبر حدث guildMemberUpdate
           
           let durationText = 'Permanent (∞)';
           let durationMs = null;
@@ -740,6 +763,7 @@ client.on('interactionCreate', async interaction => {
                 const freshMember = await interaction.guild.members.fetch(targetUserId);
                 if (freshMember && freshMember.roles.cache.has(NO_ROLE_ID)) {
                   await freshMember.roles.remove(NO_ROLE_ID);
+                  // عند انتهاء الوقت وإزالة النو رول، ستعود رولاته تلقائياً عبر حدث guildMemberUpdate
                 }
               } catch (e) {}
             }, durationMs);
