@@ -17,7 +17,8 @@ const {
   ActionRowBuilder, 
   ButtonBuilder, 
   ButtonStyle,
-  EmbedBuilder 
+  EmbedBuilder,
+  PermissionsBitField 
 } = require('discord.js');
 
 const client = new Client({
@@ -53,8 +54,14 @@ const picLiveRoles = {
 
 const MUTED_ROLE_ID = '1535504124622143508'; // أيدي رول الميوت
 const JAIL_ROLE_ID = '1535376614735609977';  // أيدي رول السجن
+const TIME_ROLE_ID = '1535522564061929512';  // أيدي رول صانع التايم
+const CLEAR_ROLE_ID = '1535523717650583602'; // أيدي رول المسح
+const LOCK_ROLE_ID = '1535523952498057338';  // أيدي رول القفل والفتح
+
 const COLOR_CHANNEL_ID = '1535406298781192292'; // روم الألوان
 const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // روم الصور واللايف
+const IMAGE_ONLY_CHANNEL_ID = '1535490327610400810'; // روم الصور فقط
+const TELLONYM_CHANNEL_ID = '1535490429724921986'; // روم روابط التليتون
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -117,14 +124,12 @@ client.once('ready', async () => {
   }
 });
 
-// --- دالة تحويل صيغ الوقت إلى ميلي ثانية ---
+// --- دوال مساعدة للوقت والعضو المستهدف ---
 function parseDuration(argsText) {
-  if (!argsText) return 24 * 60 * 60 * 1000; // الافتراضي 24 ساعة لو ما حدد
-  
+  if (!argsText) return 7 * 24 * 60 * 60 * 1000; // افتراضي 7 أيام للتايم، و24 ساعة للأسكات لو ما حدد
   const cleaned = argsText.replace(/\s+/g, '').toLowerCase();
   const match = cleaned.match(/^(\d+)([smhdwy]|day|week|month)?$/);
-  
-  if (!match) return 24 * 60 * 60 * 1000;
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
 
   const value = parseInt(match[1]);
   const unit = match[2];
@@ -136,10 +141,9 @@ function parseDuration(argsText) {
   if (unit === 'w' || unit === 'week') return value * 7 * 24 * 60 * 60 * 1000;
   if (unit === 'y') return value * 365 * 24 * 60 * 60 * 1000;
 
-  return 24 * 60 * 60 * 1000;
+  return 7 * 24 * 60 * 60 * 1000;
 }
 
-// دالة مساعدة للحصول على العضو المستهدف سواء بالمنشن أو بالرد على رسالة
 async function getTargetMember(message) {
   let targetMember = message.mentions.members.first();
   if (!targetMember && message.reference) {
@@ -156,8 +160,78 @@ async function getTargetMember(message) {
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
+  // --- نظام روم الصور فقط ---
+  if (message.channel.id === IMAGE_ONLY_CHANNEL_ID) {
+    const hasImage = message.attachments.size > 0 || message.embeds.length > 0 || /https?:\/\/.*\.(png|jpg|jpeg|gif|webp)/i.test(message.content);
+    if (hasImage) {
+      await message.react('💖').catch(() => {});
+    } else {
+      await message.delete().catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام روم روابط التليتون فقط ---
+  if (message.channel.id === TELLONYM_CHANNEL_ID) {
+    const isTellonym = /tellonym\.me/i.test(message.content);
+    if (!isTellonym) {
+      await message.delete().catch(() => {});
+    }
+    return;
+  }
+
   const args = message.content.trim().split(/ +/);
   const command = args[0];
+
+  // --- نظام "باند" أو "طياره" ---
+  if (command === 'باند' || command === 'طياره') {
+    try {
+      const targetMember = await getTargetMember(message);
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      await targetMember.ban({ reason: 'بواسـطة الأوامر الإدارية' });
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "فك باند" ---
+  if (command === 'فك') {
+    if (args[1] === 'باند') {
+      try {
+        const userId = args[2] ? args[2].replace(/[<@!>]/g, '') : null;
+        if (!userId) {
+          await message.react('❌').catch(() => {});
+          return;
+        }
+        await message.guild.members.unban(userId);
+        await message.react('✅').catch(() => {});
+      } catch (err) {
+        await message.react('❌').catch(() => {});
+      }
+      return;
+    }
+  }
+
+  // --- نظام "برا" (طرد من السيرفر) ---
+  if (command === 'برا') {
+    try {
+      const targetMember = await getTargetMember(message);
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      await targetMember.kick('طرد بواسطة الأوامر');
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
 
   // --- نظام "سجن" ---
   if (command === 'سجن') {
@@ -193,7 +267,7 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  // --- نظام "اص" لتسكيت الشخص (يدعم المنشن أو الرد) ---
+  // --- نظام "اص" لتسكيت الشخص ---
   if (command === 'اص') {
     try {
       const targetMember = await getTargetMember(message);
@@ -201,15 +275,12 @@ client.on('messageCreate', async message => {
         await message.react('❌').catch(() => {});
         return;
       }
-
-      // استخراج النص المتبقي بعد المنشن أو الأمر لمعرفة الوقت
       let contentWithoutCommand = message.content.replace('اص', '').replace(/<@!?\d+>/g, '').trim();
-      const durationMs = parseDuration(contentWithoutCommand);
+      const durationMs = parseDuration(contentWithoutCommand) || (24 * 60 * 60 * 1000);
 
       await targetMember.roles.add(MUTED_ROLE_ID);
       await message.react('✅').catch(() => {});
 
-      // فك الميوت تلقائياً بعد انتهاء الوقت
       setTimeout(async () => {
         try {
           if (targetMember.roles.cache.has(MUTED_ROLE_ID)) {
@@ -217,14 +288,13 @@ client.on('messageCreate', async message => {
           }
         } catch (e) {}
       }, durationMs);
-
     } catch (err) {
       await message.react('❌').catch(() => {});
     }
     return;
   }
 
-  // --- نظام "تكلم" لفك الميوت فوراً (يدعم المنشن أو الرد) ---
+  // --- نظام "تكلم" ---
   if (command === 'تكلم') {
     try {
       const targetMember = await getTargetMember(message);
@@ -232,10 +302,134 @@ client.on('messageCreate', async message => {
         await message.react('❌').catch(() => {});
         return;
       }
-
       if (targetMember.roles.cache.has(MUTED_ROLE_ID)) {
         await targetMember.roles.remove(MUTED_ROLE_ID);
       }
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "تايم" (يتطلب رول التايم) ---
+  if (command === 'تايم') {
+    if (!message.member.roles.cache.has(TIME_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
+    try {
+      const targetMember = await getTargetMember(message);
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      let contentWithoutCommand = message.content.replace('تايم', '').replace(/<@!?\d+>/g, '').trim();
+      const durationMs = parseDuration(contentWithoutCommand);
+
+      await targetMember.timeout(durationMs, 'تايم إداري');
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "لاتايم" ---
+  if (command === 'لاتايم') {
+    if (!message.member.roles.cache.has(TIME_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
+    try {
+      const targetMember = await getTargetMember(message);
+      if (!targetMember) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      await targetMember.timeout(null, 'إزالة التايم');
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "مسح" (يتطلب رول المسح) ---
+  if (command === 'مسح') {
+    if (!message.member.roles.cache.has(CLEAR_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
+    try {
+      const count = parseInt(args[1]);
+      if (isNaN(count) || count <= 0) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+      await message.delete().catch(() => {});
+      const fetched = await message.channel.messages.fetch({ limit: Math.min(count, 100) });
+      await message.channel.bulkDelete(fetched, true);
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "قفل" (يتطلب رول القفل) ---
+  if (command === 'قفل') {
+    if (!message.member.roles.cache.has(LOCK_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
+    try {
+      await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "فتح" (يتطلب رول القفل) ---
+  if (command === 'فتح') {
+    if (!message.member.roles.cache.has(LOCK_ROLE_ID) && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
+    try {
+      await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: true });
+      await message.react('✅').catch(() => {});
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
+  // --- نظام "فحص النو رول" (لأصحاب صلاحية Administrator) ---
+  if (command === 'فحص') {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return;
+    }
+    try {
+      // جلب جميع الأعضاء وتصفية من ليس لديهم رولات (أو تحقق من عدم وجود رولات أساسية أخرى، هنا نفترض الأعضاء الذين ليس لديهم رولات بخلاف Everyone)
+      await message.guild.members.fetch();
+      const membersWithoutRole = message.guild.members.cache.filter(m => !m.user.bot && m.roles.cache.size <= 1);
+      
+      if (membersWithoutRole.size === 0) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+
+      // ترتيبهم من الأقدم انضماماً (أو الأقرب أخذًا بحسب تاريخ الانضمام للسيرفر كمرجع للأقدم والأجدد)
+      const sortedMembers = Array.from(membersWithoutRole.values()).sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
+
+      let responseText = "";
+      sortedMembers.forEach((m, index) => {
+        responseText += `${index + 1}- <@${m.id}>\n`;
+      });
+
+      await message.reply(responseText);
       await message.react('✅').catch(() => {});
     } catch (err) {
       await message.react('❌').catch(() => {});
