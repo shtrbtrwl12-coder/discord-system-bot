@@ -51,13 +51,13 @@ const picLiveRoles = {
   'role_live': '1535409840430645308'
 };
 
-const COLOR_CHANNEL_ID = '1535490093358252074'; // روم الألوان (#decline)
-const PIC_LIVE_CHANNEL_ID = '1535497274052956221'; // روم الصور واللايف (#menu)
+const COLOR_CHANNEL_ID = '1535490093358252074'; // روم الألوان
+const PIC_LIVE_CHANNEL_ID = '1535406298781192292'; // روم الصور واللايف
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
 
-  // --- منطق روم الصور واللايف (رسالة واحدة فقط لا تتكرر) ---
+  // --- منطق روم الصور واللايف (رسالة واحدة بالصورة والنص والأزرار) ---
   const picChannel = await client.channels.fetch(PIC_LIVE_CHANNEL_ID).catch(() => null);
   if (picChannel) {
     const rowPicLive = new ActionRowBuilder().addComponents(
@@ -66,7 +66,11 @@ client.once('ready', async () => {
     );
     const imageUrl = 'https://cdn.discordapp.com/attachments/1535193306701504532/1535496031603662848/B0D8C494-4238-4411-9D59-979A17AEBD16.png';
     const imageEmbed = new EmbedBuilder().setImage(imageUrl).setColor('#2b2d31');
-    await picChannel.send({ embeds: [imageEmbed], components: [rowPicLive] });
+    await picChannel.send({ 
+      content: 'لـ رول الصور و اللايف', 
+      embeds: [imageEmbed], 
+      components: [rowPicLive] 
+    });
   }
 
   // --- منطق روم الألوان (يحدث كل 15 ثانية ويحذف القديم) ---
@@ -76,7 +80,7 @@ client.once('ready', async () => {
       try {
         const fetchedMessages = await colorChannel.messages.fetch({ limit: 100 });
         for (const msg of fetchedMessages.values()) {
-          if (msg.author.id === client.user.id && !msg.embeds.length) {
+          if (msg.author.id === client.user.id && !msg.embeds.length && !msg.content) {
             try { await msg.delete(); } catch (err) {}
           }
         }
