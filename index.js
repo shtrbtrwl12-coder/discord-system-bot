@@ -51,13 +51,13 @@ const picLiveRoles = {
   'role_live': '1535409840430645308'
 };
 
-const COLOR_CHANNEL_ID = '1535490093358252074'; // روم الألوان
-const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // استبدله بأيدي روم الصور الجديد
+const COLOR_CHANNEL_ID = '1535490093358252074'; // روم الألوان (#decline)
+const PIC_LIVE_CHANNEL_ID = '1535497274052956221'; // روم الصور واللايف (#menu)
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
 
-  // --- منطق روم الصور (مرة واحدة) ---
+  // --- منطق روم الصور واللايف (رسالة واحدة فقط لا تتكرر) ---
   const picChannel = await client.channels.fetch(PIC_LIVE_CHANNEL_ID).catch(() => null);
   if (picChannel) {
     const rowPicLive = new ActionRowBuilder().addComponents(
@@ -69,7 +69,7 @@ client.once('ready', async () => {
     await picChannel.send({ embeds: [imageEmbed], components: [rowPicLive] });
   }
 
-  // --- منطق روم الألوان (يتكرر كل 15 ثانية) ---
+  // --- منطق روم الألوان (يحدث كل 15 ثانية ويحذف القديم) ---
   const colorChannel = await client.channels.fetch(COLOR_CHANNEL_ID).catch(() => null);
   if (colorChannel) {
     setInterval(async () => {
@@ -153,4 +153,4 @@ client.on('interactionCreate', async interaction => {
   } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
 });
 
-client.client.login(process.env.TOKEN);
+client.login(process.env.TOKEN);
