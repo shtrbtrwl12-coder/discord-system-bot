@@ -62,9 +62,22 @@ const COLOR_CHANNEL_ID = '1535406298781192292'; // روم الألوان
 const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; // روم الصور واللايف
 const IMAGE_ONLY_CHANNEL_ID = '1535490327610400810'; // روم الصور فقط
 const TELLONYM_CHANNEL_ID = '1535490429724921986'; // روم روابط التليتون
+const IMAGE_CHANNEL_ID = '1535375475289890879'; // روم إرسال الصورة المطلوبة
+const CUSTOM_EMOJI_ID = '1535510817703862282'; // أيدي الإيموجي الجديد لروم الصور
 
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
+
+  // --- إرسال الصورة المطلوبة في الروم المحدد ---
+  const imageTargetChannel = await client.channels.fetch(IMAGE_CHANNEL_ID).catch(() => null);
+  if (imageTargetChannel) {
+    const fetchedImgMsgs = await imageTargetChannel.messages.fetch({ limit: 5 }).catch(() => null);
+    const imgAlreadySent = fetchedImgMsgs ? fetchedImgMsgs.some(m => m.author.id === client.user.id) : false;
+    if (!imgAlreadySent) {
+      const embed = new EmbedBuilder().setImage('https://cdn.discordapp.com/attachments/1535193306701504532/1535533823956221952/image.png').setColor('#2b2d31');
+      await imageTargetChannel.send({ embeds: [embed] }).catch(() => {});
+    }
+  }
 
   // --- منطق روم الصور واللايف (يرسل مرة واحدة فقط ولا يتكرر) ---
   const picChannel = await client.channels.fetch(PIC_LIVE_CHANNEL_ID).catch(() => null);
@@ -126,7 +139,7 @@ client.once('ready', async () => {
 
 // --- دوال مساعدة للوقت والعضو المستهدف ---
 function parseDuration(argsText) {
-  if (!argsText) return 7 * 24 * 60 * 60 * 1000; // افتراضي 7 أيام للتايم، و24 ساعة للأسكات لو ما حدد
+  if (!argsText) return 7 * 24 * 60 * 60 * 1000;
   const cleaned = argsText.replace(/\s+/g, '').toLowerCase();
   const match = cleaned.match(/^(\d+)([smhdwy]|day|week|month)?$/);
   if (!match) return 7 * 24 * 60 * 60 * 1000;
@@ -164,7 +177,7 @@ client.on('messageCreate', async message => {
   if (message.channel.id === IMAGE_ONLY_CHANNEL_ID) {
     const hasImage = message.attachments.size > 0 || message.embeds.length > 0 || /https?:\/\/.*\.(png|jpg|jpeg|gif|webp)/i.test(message.content);
     if (hasImage) {
-      await message.react('💖').catch(() => {});
+      await message.react(CUSTOM_EMOJI_ID).catch(() => {});
     } else {
       await message.delete().catch(() => {});
     }
@@ -180,6 +193,38 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  const contentLower = message.content.toLowerCase().trim();
+
+  // --- نظام Crator role (يدعم كابيتال وسمول) ---
+  if (contentLower.startsWith('crator role')) {
+    const args = message.content.split(' ');
+    const roleName = args.slice(2).join(' ');
+    
+    let targetMember = message.mentions.members.first();
+    if (!targetMember && message.reference) {
+      try {
+        const replied = await message.channel.messages.fetch(message.reference.messageId);
+        targetMember = await message.guild.members.fetch(replied.author.id);
+      } catch (e) {}
+    }
+
+    if (targetMember && roleName) {
+      try {
+        const newRole = await message.guild.roles.create({
+          name: roleName,
+          reason: 'Created by Crator role command'
+        });
+        await targetMember.roles.add(newRole);
+        await message.react('✅').catch(() => {});
+      } catch (e) {
+        await message.react('❌').catch(() => {});
+      }
+    } else {
+      await message.react('❌').catch(() => {});
+    }
+    return;
+  }
+
   const args = message.content.trim().split(/ +/);
   const command = args[0];
 
@@ -191,7 +236,7 @@ client.on('messageCreate', async message => {
         await message.react('❌').catch(() => {});
         return;
       }
-      await targetMember.ban({ reason: 'بواسـطة الأوامر الإدارية' });
+      await targetMember.ban({ reason: 'بواسطة الأوامر الإدارية' });
       await message.react('✅').catch(() => {});
     } catch (err) {
       await message.react('❌').catch(() => {});
@@ -412,7 +457,6 @@ client.on('messageCreate', async message => {
       return;
     }
     try {
-      // جلب جميع الأعضاء وتصفية من ليس لديهم رولات (أو تحقق من عدم وجود رولات أساسية أخرى، هنا نفترض الأعضاء الذين ليس لديهم رولات بخلاف Everyone)
       await message.guild.members.fetch();
       const membersWithoutRole = message.guild.members.cache.filter(m => !m.user.bot && m.roles.cache.size <= 1);
       
@@ -421,7 +465,6 @@ client.on('messageCreate', async message => {
         return;
       }
 
-      // ترتيبهم من الأقدم انضماماً (أو الأقرب أخذًا بحسب تاريخ الانضمام للسيرفر كمرجع للأقدم والأجدد)
       const sortedMembers = Array.from(membersWithoutRole.values()).sort((a, b) => a.joinedTimestamp - b.joinedTimestamp);
 
       let responseText = "";
