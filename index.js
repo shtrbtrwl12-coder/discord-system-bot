@@ -80,6 +80,9 @@ const NEW_IMAGE_CHANNEL_ID = '1535489711420735549';
 const REMOVE_ROLE_CHANNEL_ID = '1535821718751289354';
 const ADDED_ROLE_CHANNEL_ID = '1535822130342658118';
 
+// روم ممنوع على البوت التكلم فيه
+const BLOCKED_BOT_CHANNEL_ID = '1535856331666358413';
+
 function hasNoRolePermission(member) {
   if (!member) return false;
   if (member.permissions.has(PermissionsBitField.Flags.Administrator)) return true;
@@ -309,6 +312,9 @@ client.on('guildBanRemove', async ban => {
 
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
+
+  // منع البوت من معالجة الرسائل أو التفاعل في الروم المحدد
+  if (message.channel.id === BLOCKED_BOT_CHANNEL_ID) return;
 
   const userId = message.author.id;
   const now = Date.now();
@@ -941,6 +947,14 @@ client.on('messageCreate', async message => {
 });
 
 client.on('interactionCreate', async interaction => {
+  // منع البوت من الرد عبر الأزرار أو التفاعلات إذا تم الضغط عليها داخل الروم الممنوع
+  if (interaction.channel && interaction.channel.id === BLOCKED_BOT_CHANNEL_ID) {
+    if (interaction.isRepliable()) {
+      await interaction.reply({ content: 'عقلياً، هذا الروم ممنوع على البوت التفاعل فيه!', ephemeral: true }).catch(() => {});
+    }
+    return;
+  }
+
   if (interaction.isButton()) {
     const member = interaction.member;
     const customId = interaction.customId;
