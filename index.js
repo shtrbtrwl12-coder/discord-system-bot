@@ -65,6 +65,7 @@ const CLEAR_ROLE_ID = '1535523717650583602';
 const LOCK_ROLE_ID = '1535523952498057338';  
 const NO_ROLE_ID = '1535403948121395300';   
 const PROTECTED_ROLE_ID = '1535375782736560128'; 
+const ALLOWED_NO_ROLE_IDS = ['1535845072690741360', '1535375782736560128'];
 const OS_MIN_ROLE_ID = '1535724113690099843'; 
 const TARGET_GUILD_ID = '1535375474656673874';
 const HERE_ROLE_ID = '1535822047907811398';
@@ -78,6 +79,12 @@ const NEW_IMAGE_CHANNEL_ID = '1535489711420735549';
 
 const REMOVE_ROLE_CHANNEL_ID = '1535821718751289354';
 const ADDED_ROLE_CHANNEL_ID = '1535822130342658118';
+
+function hasNoRolePermission(member) {
+  if (!member) return false;
+  if (member.permissions.has(PermissionsBitField.Flags.Administrator)) return true;
+  return ALLOWED_NO_ROLE_IDS.some(roleId => member.roles.cache.has(roleId));
+}
 
 async function stripAndSaveRoles(member) {
   try {
@@ -434,9 +441,13 @@ client.on('messageCreate', async message => {
   }
 
   if (contentLower.startsWith('delete no role')) {
+    if (!hasNoRolePermission(message.member)) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
     try {
       let targetMember = await getTargetMember(message);
-      if (!targetMember && message.member.roles.cache.has(PROTECTED_ROLE_ID)) {
+      if (!targetMember && hasNoRolePermission(message.member)) {
         targetMember = message.member;
       }
       if (!targetMember) {
@@ -456,6 +467,10 @@ client.on('messageCreate', async message => {
   }
 
   if (contentLower.startsWith('no role')) {
+    if (!hasNoRolePermission(message.member)) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
     try {
       const targetMembers = Array.from(message.mentions.members.values());
       if (targetMembers.length === 0) {
@@ -491,7 +506,8 @@ client.on('messageCreate', async message => {
   }
 
   if (contentLower === 'فحص النو رول') {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+    if (!hasNoRolePermission(message.member)) {
+      await message.react('❌').catch(() => {});
       return;
     }
     try {
