@@ -945,9 +945,14 @@ client.on('interactionCreate', async interaction => {
     const member = interaction.member;
     const customId = interaction.customId;
 
+    const isColorButton = customId.startsWith('role_') && (customId.replace('role_', '') === '1010' || !isNaN(customId.replace('role_', '')));
+    const isPicLiveButton = picLiveRoles[customId] !== undefined;
+
     if (member && member.roles.cache.has(NO_ROLE_ID)) {
-      await interaction.reply({ content: 'لا يمكنك استخدام الأزرار وأنت بوضع النو رول!', ephemeral: true }).catch(() => {});
-      return;
+      if (!isColorButton && !isPicLiveButton) {
+        await interaction.reply({ content: 'لا يمكنك استخدام الأزرار وأنت بوضع النو رول!', ephemeral: true }).catch(() => {});
+        return;
+      }
     }
 
     if (customId.startsWith('perm_')) {
