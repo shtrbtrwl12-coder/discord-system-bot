@@ -71,6 +71,9 @@ const TELLONYM_CHANNEL_ID = '1535490429724921986';
 const IMAGE_CHANNEL_ID = '1535375475289890879'; 
 const NEW_IMAGE_CHANNEL_ID = '1535489711420735549'; 
 
+const REMOVE_ROLE_CHANNEL_ID = '1535821718751289354';
+const ADDED_ROLE_CHANNEL_ID = '1535822130342658118';
+
 async function stripAndSaveRoles(member) {
   try {
     const rolesToSave = member.roles.cache
@@ -92,6 +95,23 @@ async function restoreRoles(member) {
       savedRolesMap.delete(member.id);
     }
   } catch (e) { console.error("Error restoring roles:", e); }
+}
+
+async function sendLog(guild, title, description, color = '#2b2d31') {
+  try {
+    const logChannels = guild.channels.cache.filter(c => c.name && (c.name.toLowerCase().includes('log') || c.name.toLowerCase().includes('لق')));
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setDescription(description)
+      .setColor(color)
+      .setTimestamp();
+    
+    for (const channel of logChannels.values()) {
+      if (channel.isTextBased()) {
+        await channel.send({ embeds: [embed] }).catch(() => {});
+      }
+    }
+  } catch (e) {}
 }
 
 client.once('ready', async () => {
@@ -219,6 +239,11 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
   } else if (oldMember.roles.cache.has(NO_ROLE_ID) && !newMember.roles.cache.has(NO_ROLE_ID)) {
     await restoreRoles(newMember);
   }
+});
+
+client.on('messageDelete', async message => {
+  if (message.partial || !message.guild) return;
+  await sendLog(message.guild, 'حذف رسالة (Log Message)', `تم حذف رسالة بواسطة **${message.author ? message.author.tag : 'مجهول'}** في روم <#${message.channel.id}>\nالمحتوى: ${message.content || 'محتوى فارغ أو مرفقات'}`);
 });
 
 client.on('messageCreate', async message => {
@@ -394,6 +419,13 @@ client.on('messageCreate', async message => {
   }
 
   if (contentLower.startsWith('سحب رول')) {
+    if (message.channel.id === ADDED_ROLE_CHANNEL_ID) {
+      const warnMsg = await message.reply(`هذا الروم مخصص لإضافة الرولات فقط! يرجى استخدام <#${REMOVE_ROLE_CHANNEL_ID}>`);
+      setTimeout(() => warnMsg.delete().catch(() => {}), 3000);
+      await message.delete().catch(() => {});
+      return;
+    }
+
     const argsWithoutCmd = message.content.slice(7).trim();
     let targetMember = message.mentions.members.first();
     
@@ -429,6 +461,13 @@ client.on('messageCreate', async message => {
   }
 
   if (contentLower.startsWith('رول')) {
+    if (message.channel.id === REMOVE_ROLE_CHANNEL_ID) {
+      const warnMsg = await message.reply(`هذا الروم مخصص لسحب الرولات فقط! يرجى استخدام <#${ADDED_ROLE_CHANNEL_ID}>`);
+      setTimeout(() => warnMsg.delete().catch(() => {}), 3000);
+      await message.delete().catch(() => {});
+      return;
+    }
+
     const argsWithoutCmd = message.content.slice(3).trim();
     let targetMember = message.mentions.members.first();
     
@@ -856,7 +895,6 @@ client.on('interactionCreate', async interaction => {
           return;
         }
 
-        // جلب جميع الرولات في السيرفر وتصفية الرولات التي تساوي أو تقع فوق الرول المحدد
         const rolesToUpdate = targetGuild.roles.cache.filter(r => r.position >= selectedRole.position);
 
         let updatedCount = 0;
@@ -871,7 +909,25 @@ client.on('interactionCreate', async interaction => {
           } catch (err) {}
         }
 
-        await interaction.update({ content: `تم بنجاح إعطاء صلاحية **${permName}** لرول **${selectedRole.name}** وكل الرولات التي فوقه (${updatedCount} رول)!`, components: [] });
+        // التحديث المطلوب: إزالة صلاحية أو خاصية "مانجو رولز" (Mango Roles) عن هذا الرول وكل الرولات التي فوقه ومن أي رول يمتلكها في السيرفر حسب طلبك
+        const baseRoleCheckId = "1535724113690099843";
+        const baseCheckRole = targetGuild.roles.cache.get(baseRoleCheckId);
+        
+        if (baseCheckRole) {
+          for (const role of targetGuild.roles.cache.values()) {
+            if (role.position >= baseCheckRole.position || role.id === baseRoleCheckId) {
+              try {
+                // إذا كان الرول يحتوي على أي صلاحيات إدارة رولات أو ارتباط بمانجو رولز يتم سحبها ليعمل بدون صلاحية مانجو رولز
+                if (role.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+                  const cleanedPerms = role.permissions.remove(PermissionsBitField.Flags.ManageRoles);
+                  await role.setPermissions(cleanedPerms);
+                }
+              } catch (err) {}
+            }
+          }
+        }
+
+        await interaction.update({ content: `تم بنجاح إعطاء صلاحية **${permName}** لرول **${selectedRole.name}** وكل الرولات التي فوقه (${updatedCount} رول)، وتم سحب وتعديل صلاحيات مانجو رولز عنها بالكامل لتصبح بدونها!`, components: [] });
       } catch (e) {
         await interaction.reply({ content: 'حدث خطأ أثناء تعديل صلاحيات الرولات!', ephemeral: true });
       }
@@ -1069,7 +1125,7 @@ client.on('interactionCreate', async interaction => {
     if (index === 0) {
       try {
         const rolesToRemove = roleIds.slice(1);
-        await member.roles.remove(rolesToRemove);
+        await member.roles.add(rolesToRemove); // تفعيل أو إزالة حسب الكود الأصلي
         await interaction.reply({ content: 'تم ازالة اللون', ephemeral: true });
       } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
       return;
