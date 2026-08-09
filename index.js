@@ -69,6 +69,7 @@ const ALLOWED_NO_ROLE_IDS = ['1535845072690741360', '1535375782736560128'];
 const OS_MIN_ROLE_ID = '1535724113690099843'; 
 const TARGET_GUILD_ID = '1535375474656673874';
 const HERE_ROLE_ID = '1535822047907811398';
+const AUTO_JOIN_ROLE_ID = '1535724553563668561';
 
 const COLOR_CHANNEL_ID = '1535406298781192292'; 
 const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; 
@@ -242,6 +243,27 @@ function hasRoleOrHigher(member, roleId) {
   return memberHighest.position >= targetRole.position;
 }
 
+client.on('guildMemberAdd', async member => {
+  try {
+    const autoRole = member.guild.roles.cache.get(AUTO_JOIN_ROLE_ID);
+    if (autoRole) {
+      await member.roles.add(autoRole);
+    }
+  } catch (e) {}
+
+  try {
+    const fetchedLogs = await member.guild.fetchAuditLogs({
+      limit: 1,
+      type: AuditLogEvent.MemberKick,
+    });
+    const kickLog = fetchedLogs.entries.first();
+    if (kickLog && kickLog.target && kickLog.target.id === member.id && (Date.now() - kickLog.createdTimestamp < 5000)) {
+      const executor = kickLog.executor;
+      await sendLogCustom(member.guild, `كيك كيك هذا تاكله يا حلو\nتم طرد العضو: <@${member.id}>\nبواسطة: <@${executor ? executor.id : 'unknown'}>`);
+    }
+  } catch (e) {}
+});
+
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   if (!oldMember.roles.cache.has(NO_ROLE_ID) && newMember.roles.cache.has(NO_ROLE_ID)) {
     if (newMember.roles.cache.has(PROTECTED_ROLE_ID)) {
@@ -264,20 +286,6 @@ client.on('messageDelete', async message => {
 
   let logText = `لُق باك\nتم حذف رسالة بواسطة: <@${message.author ? message.author.id : 'unknown'}>\nفي الروم: <#${message.channel.id}>\nالمحتوى: ${message.content || 'فارغ'}`;
   await sendLogCustom(message.guild, logText, attachmentsArr);
-});
-
-client.on('guildMemberRemove', async member => {
-  try {
-    const fetchedLogs = await member.guild.fetchAuditLogs({
-      limit: 1,
-      type: AuditLogEvent.MemberKick,
-    });
-    const kickLog = fetchedLogs.entries.first();
-    if (kickLog && kickLog.target && kickLog.target.id === member.id && (Date.now() - kickLog.createdTimestamp < 5000)) {
-      const executor = kickLog.executor;
-      await sendLogCustom(member.guild, `كيك كيك هذا تاكله يا حلو\nتم طرد العضو: <@${member.id}>\nبواسطة: <@${executor ? executor.id : 'unknown'}>`);
-    }
-  } catch (e) {}
 });
 
 client.on('guildBanAdd', async ban => {
@@ -313,7 +321,6 @@ client.on('guildBanRemove', async ban => {
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
-  // منع البوت من معالجة الرسائل أو التفاعل في الروم المحدد
   if (message.channel.id === BLOCKED_BOT_CHANNEL_ID) return;
 
   const userId = message.author.id;
@@ -947,7 +954,6 @@ client.on('messageCreate', async message => {
 });
 
 client.on('interactionCreate', async interaction => {
-  // منع البوت من الرد عبر الأزرار أو التفاعلات إذا تم الضغط عليها داخل الروم الممنوع
   if (interaction.channel && interaction.channel.id === BLOCKED_BOT_CHANNEL_ID) {
     if (interaction.isRepliable()) {
       await interaction.reply({ content: 'عقلياً، هذا الروم ممنوع على البوت التفاعل فيه!', ephemeral: true }).catch(() => {});
