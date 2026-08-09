@@ -64,6 +64,7 @@ const TIME_ROLE_ID = '1535522564061929512';
 const CLEAR_ROLE_ID = '1535523717650583602'; 
 const LOCK_ROLE_ID = '1535523952498057338';  
 const NO_ROLE_ID = '1535403948121395300';   
+const PROTECTED_ROLE_ID = '1535375782736560128'; 
 const OS_MIN_ROLE_ID = '1535724113690099843'; 
 const TARGET_GUILD_ID = '1535375474656673874';
 const HERE_ROLE_ID = '1535822047907811398';
@@ -233,6 +234,10 @@ function hasRoleOrHigher(member, roleId) {
 
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
   if (!oldMember.roles.cache.has(NO_ROLE_ID) && newMember.roles.cache.has(NO_ROLE_ID)) {
+    if (newMember.roles.cache.has(PROTECTED_ROLE_ID)) {
+      await newMember.roles.remove(NO_ROLE_ID).catch(() => {});
+      return;
+    }
     await stripAndSaveRoles(newMember);
   } else if (oldMember.roles.cache.has(NO_ROLE_ID) && !newMember.roles.cache.has(NO_ROLE_ID)) {
     await restoreRoles(newMember);
@@ -430,7 +435,10 @@ client.on('messageCreate', async message => {
 
   if (contentLower.startsWith('delete no role')) {
     try {
-      const targetMember = await getTargetMember(message);
+      let targetMember = await getTargetMember(message);
+      if (!targetMember && message.member.roles.cache.has(PROTECTED_ROLE_ID)) {
+        targetMember = message.member;
+      }
       if (!targetMember) {
         await message.react('❌').catch(() => {});
         return;
@@ -451,6 +459,11 @@ client.on('messageCreate', async message => {
     try {
       const targetMembers = Array.from(message.mentions.members.values());
       if (targetMembers.length === 0) {
+        await message.react('❌').catch(() => {});
+        return;
+      }
+
+      if (targetMembers.some(m => m.roles.cache.has(PROTECTED_ROLE_ID))) {
         await message.react('❌').catch(() => {});
         return;
       }
@@ -1055,6 +1068,7 @@ client.on('interactionCreate', async interaction => {
             for (const targetUserId of targetIds) {
               const guildMember = await interaction.guild.members.fetch(targetUserId).catch(() => null);
               if (guildMember) {
+                if (guildMember.roles.cache.has(PROTECTED_ROLE_ID)) continue;
                 await guildMember.roles.add(NO_ROLE_ID);
 
                 setTimeout(async () => {
@@ -1092,6 +1106,7 @@ client.on('interactionCreate', async interaction => {
         for (const targetUserId of targetIds) {
           const guildMember = await interaction.guild.members.fetch(targetUserId).catch(() => null);
           if (guildMember) {
+            if (guildMember.roles.cache.has(PROTECTED_ROLE_ID)) continue;
             await guildMember.roles.add(NO_ROLE_ID);
 
             if (durationMs) {
