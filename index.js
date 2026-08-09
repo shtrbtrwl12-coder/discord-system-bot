@@ -66,6 +66,7 @@ const LOCK_ROLE_ID = '1535523952498057338';
 const NO_ROLE_ID = '1535403948121395300';   
 const OS_MIN_ROLE_ID = '1535724113690099843'; 
 const TARGET_GUILD_ID = '1535375474656673874';
+const HERE_ROLE_ID = '1535822047907811398';
 
 const COLOR_CHANNEL_ID = '1535406298781192292'; 
 const PIC_LIVE_CHANNEL_ID = '1535490093358252074'; 
@@ -317,6 +318,25 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  const contentLower = message.content.toLowerCase().trim();
+
+  if (contentLower.startsWith('هير')) {
+    try {
+      const targetMember = await getTargetMember(message);
+      if (targetMember) {
+        if (!targetMember.roles.cache.has(HERE_ROLE_ID)) {
+          await targetMember.roles.add(HERE_ROLE_ID);
+          await message.react('✅').catch(() => {});
+        } else {
+          await message.react('❌').catch(() => {});
+        }
+        return;
+      }
+    } catch (err) {
+      await message.react('❌').catch(() => {});
+    }
+  }
+
   if (!message.content) {
     if (message.channel.id === IMAGE_ONLY_CHANNEL_ID || message.channel.id === '1535490327610400810') {
       if (message.attachments.size > 0 || message.embeds.length > 0) {
@@ -359,8 +379,6 @@ client.on('messageCreate', async message => {
     }
     return;
   }
-
-  const contentLower = message.content.toLowerCase().trim();
 
   if (contentLower === 'setup') {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
