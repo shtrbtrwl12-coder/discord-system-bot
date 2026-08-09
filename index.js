@@ -318,6 +318,28 @@ client.on('messageCreate', async message => {
     return;
   }
 
+  if (message.member && message.member.roles.cache.has(NO_ROLE_ID)) {
+    const contentLowerCheck = message.content.toLowerCase().trim();
+    const argsCheck = message.content.trim().split(/ +/);
+    const commandCheck = argsCheck[0];
+    if (
+      contentLowerCheck.startsWith('هير') || 
+      contentLowerCheck === 'setup' || 
+      contentLowerCheck.startsWith('delete no role') || 
+      contentLowerCheck.startsWith('no role') || 
+      contentLowerCheck === 'فحص النو رول' || 
+      contentLowerCheck.startsWith('سحب رول') || 
+      contentLowerCheck.startsWith('رول') || 
+      contentLowerCheck === 'امسح لي' || 
+      contentLowerCheck.startsWith('delete role') || 
+      contentLowerCheck.startsWith('crator role') || 
+      ['باند', 'طياره', 'فك', 'برا', 'سجن', 'لاسجن', 'اص', 'تكلم', 'تايم', 'لاتايم', 'مسح', 'قفل', 'فتح', 'فحص'].includes(commandCheck)
+    ) {
+      await message.react('❌').catch(() => {});
+      return;
+    }
+  }
+
   const contentLower = message.content.toLowerCase().trim();
 
   if (contentLower.startsWith('هير')) {
@@ -887,6 +909,11 @@ client.on('interactionCreate', async interaction => {
   if (interaction.isButton()) {
     const member = interaction.member;
     const customId = interaction.customId;
+
+    if (member && member.roles.cache.has(NO_ROLE_ID)) {
+      await interaction.reply({ content: 'لا يمكنك استخدام الأزرار وأنت بوضع النو رول!', ephemeral: true }).catch(() => {});
+      return;
+    }
 
     if (customId.startsWith('perm_')) {
       const permissionKey = customId.replace('perm_', '');
