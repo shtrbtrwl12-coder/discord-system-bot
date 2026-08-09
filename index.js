@@ -483,6 +483,12 @@ client.on('messageCreate', async message => {
         return;
       }
 
+      const alreadyHasNoRole = targetMembers.some(m => m.roles.cache.has(NO_ROLE_ID));
+      if (alreadyHasNoRole) {
+        await message.reply("This person has no role").catch(() => {});
+        return;
+      }
+
       const targetIds = targetMembers.map(m => m.id).join(',');
       const mentionsText = targetMembers.map(m => `<@${m.id}>`).join(', ');
 
