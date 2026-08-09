@@ -81,7 +81,6 @@ const NEW_IMAGE_CHANNEL_ID = '1535489711420735549';
 const REMOVE_ROLE_CHANNEL_ID = '1535821718751289354';
 const ADDED_ROLE_CHANNEL_ID = '1535822130342658118';
 
-// روم ممنوع على البوت التكلم فيه
 const BLOCKED_BOT_CHANNEL_ID = '1535856331666358413';
 
 function hasNoRolePermission(member) {
@@ -572,17 +571,22 @@ client.on('messageCreate', async message => {
       } catch (e) {}
     }
 
-    let roleQuery = argsWithoutCmd.replace(/<@!?\d+>/g, '').trim();
+    let roleQueryText = argsWithoutCmd.replace(/<@!?\d+>/g, '').trim();
 
-    if (targetMember && roleQuery) {
+    if (targetMember && roleQueryText) {
       try {
-        const foundRole = message.guild.roles.cache.find(r => r.name.toLowerCase().startsWith(roleQuery.toLowerCase()) || r.name.toLowerCase().includes(roleQuery.toLowerCase()));
-        if (!foundRole) {
-          await message.react('❌').catch(() => {});
-          return;
+        const roleQueries = roleQueryText.split(',').map(q => q.trim()).filter(q => q.length > 0);
+        let successCount = 0;
+
+        for (const query of roleQueries) {
+          const foundRole = message.guild.roles.cache.find(r => r.name.toLowerCase().startsWith(query.toLowerCase()) || r.name.toLowerCase().includes(query.toLowerCase()));
+          if (foundRole && targetMember.roles.cache.has(foundRole.id)) {
+            await targetMember.roles.remove(foundRole);
+            successCount++;
+          }
         }
-        if (targetMember.roles.cache.has(foundRole.id)) {
-          await targetMember.roles.remove(foundRole);
+
+        if (successCount > 0) {
           await message.react('✅').catch(() => {});
         } else {
           await message.react('❌').catch(() => {});
@@ -614,22 +618,31 @@ client.on('messageCreate', async message => {
       } catch (e) {}
     }
 
-    let roleQuery = argsWithoutCmd.replace(/<@!?\d+>/g, '').trim();
+    let roleQueryText = argsWithoutCmd.replace(/<@!?\d+>/g, '').trim();
 
-    if (targetMember && roleQuery) {
+    if (targetMember && roleQueryText) {
       try {
         if (targetMember.roles.cache.has(NO_ROLE_ID)) {
           await message.react('❌').catch(() => {});
           return;
         }
 
-        const foundRole = message.guild.roles.cache.find(r => r.name.toLowerCase().startsWith(roleQuery.toLowerCase()) || r.name.toLowerCase().includes(roleQuery.toLowerCase()));
-        if (!foundRole) {
-          await message.react('❌').catch(() => {});
-          return;
+        const roleQueries = roleQueryText.split(',').map(q => q.trim()).filter(q => q.length > 0);
+        let successCount = 0;
+
+        for (const query of roleQueries) {
+          const foundRole = message.guild.roles.cache.find(r => r.name.toLowerCase().startsWith(query.toLowerCase()) || r.name.toLowerCase().includes(query.toLowerCase()));
+          if (foundRole) {
+            await targetMember.roles.add(foundRole);
+            successCount++;
+          }
         }
-        await targetMember.roles.add(foundRole);
-        await message.react('✅').catch(() => {});
+
+        if (successCount > 0) {
+          await message.react('✅').catch(() => {});
+        } else {
+          await message.react('❌').catch(() => {});
+        }
       } catch (e) {
         await message.react('❌').catch(() => {});
       }
