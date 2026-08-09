@@ -18,7 +18,8 @@ const {
   ButtonBuilder, 
   ButtonStyle,
   EmbedBuilder,
-  PermissionsBitField 
+  PermissionsBitField,
+  AuditLogEvent 
 } = require('discord.js');
 
 const client = new Client({
@@ -26,9 +27,11 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildBans,
+    GatewayIntentBits.GuildModeration
   ],
-  partials: [Partials.Channel, Partials.Message, Partials.GuildMember]
+  partials: [Partials.Channel, Partials.Message, Partials.GuildMember, Partials.User, Partials.GuildBan]
 });
 
 const roleIds = [
@@ -97,18 +100,12 @@ async function restoreRoles(member) {
   } catch (e) { console.error("Error restoring roles:", e); }
 }
 
-async function sendLog(guild, title, description, color = '#2b2d31') {
+async function sendLogCustom(guild, content, files = []) {
   try {
     const logChannels = guild.channels.cache.filter(c => c.name && (c.name.toLowerCase().includes('log') || c.name.toLowerCase().includes('لق')));
-    const embed = new EmbedBuilder()
-      .setTitle(title)
-      .setDescription(description)
-      .setColor(color)
-      .setTimestamp();
-    
     for (const channel of logChannels.values()) {
       if (channel.isTextBased()) {
-        await channel.send({ embeds: [embed] }).catch(() => {});
+        await channel.send({ content: content, files: files }).catch(() => {});
       }
     }
   } catch (e) {}
@@ -243,7 +240,58 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
 
 client.on('messageDelete', async message => {
   if (message.partial || !message.guild) return;
-  await sendLog(message.guild, 'حذف رسالة (Log Message)', `تم حذف رسالة بواسطة **${message.author ? message.author.tag : 'مجهول'}** في روم <#${message.channel.id}>\nالمحتوى: ${message.content || 'محتوى فارغ أو مرفقات'}`);
+  
+  let attachmentsArr = [];
+  if (message.attachments && message.attachments.size > 0) {
+    attachmentsArr = Array.from(message.attachments.values()).map(att => att.url);
+  }
+
+  let logText = `لُق باك\nتم حذف رسالة بواسطة: <@${message.author ? message.author.id : 'unknown'}>\nفي الروم: <#${message.channel.id}>\nالمحتوى: ${message.content || 'فارغ'}`;
+  await sendLogCustom(message.guild, logText, attachmentsArr);
+});
+
+client.on('guildMemberRemove', async member => {
+  try {
+    const fetchedLogs = await member.guild.fetchAuditLogs({
+      limit: 1,
+      type: AuditLogEvent.MemberKick,
+    });
+    const kickLog = fetchedLogs.entries.first();
+    if (kickLog && kickLog.target && kickLog.target.id === member.id && (Date.now() - kickLog.createdTimestamp < 5000)) {
+      const executor = kickLog.executor;
+      await sendLogCustom(member.guild, `كيك كيك هذا تاكله يا حلو\nتم طرد العضو: <@${member.id}>\nبواسطة: <@${executor ? executor.id : 'unknown'}>`);
+    }
+  } catch (e) {}
+});
+
+client.on('guildBanAdd', async ban => {
+  try {
+    const fetchedLogs = await ban.guild.fetchAuditLogs({
+      limit: 1,
+      type: AuditLogEvent.MemberBanAdd,
+    });
+    const banLog = fetchedLogs.entries.first();
+    let executorTag = 'مجهول';
+    if (banLog && banLog.target && banLog.target.id === ban.user.id && (Date.now() - banLog.createdTimestamp < 5000)) {
+      executorTag = `<@${banLog.executor.id}>`;
+    }
+    await sendLogCustom(ban.guild, `لُق باند\nتم إعطاء باند للعضو: <@${ban.user.id}>\nبواسطة: ${executorTag}`);
+  } catch (e) {}
+});
+
+client.on('guildBanRemove', async ban => {
+  try {
+    const fetchedLogs = await ban.guild.fetchAuditLogs({
+      limit: 1,
+      type: AuditLogEvent.MemberBanRemove,
+    });
+    const unbanLog = fetchedLogs.entries.first();
+    let executorTag = 'مجهول';
+    if (unbanLog && unbanLog.target && unbanLog.target.id === ban.user.id && (Date.now() - unbanLog.createdTimestamp < 5000)) {
+      executorTag = `<@${unbanLog.executor.id}>`;
+    }
+    await sendLogCustom(ban.guild, `سحب الباند / فك الباند\nتم فك الباند عن العضو: <@${ban.user.id}>\nبواسطة: ${executorTag}`);
+  } catch (e) {}
 });
 
 client.on('messageCreate', async message => {
@@ -909,7 +957,6 @@ client.on('interactionCreate', async interaction => {
           } catch (err) {}
         }
 
-        // التحديث المطلوب: إزالة صلاحية أو خاصية "مانجو رولز" (Mango Roles) عن هذا الرول وكل الرولات التي فوقه ومن أي رول يمتلكها في السيرفر حسب طلبك
         const baseRoleCheckId = "1535724113690099843";
         const baseCheckRole = targetGuild.roles.cache.get(baseRoleCheckId);
         
@@ -917,7 +964,6 @@ client.on('interactionCreate', async interaction => {
           for (const role of targetGuild.roles.cache.values()) {
             if (role.position >= baseCheckRole.position || role.id === baseRoleCheckId) {
               try {
-                // إذا كان الرول يحتوي على أي صلاحيات إدارة رولات أو ارتباط بمانجو رولز يتم سحبها ليعمل بدون صلاحية مانجو رولز
                 if (role.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
                   const cleanedPerms = role.permissions.remove(PermissionsBitField.Flags.ManageRoles);
                   await role.setPermissions(cleanedPerms);
@@ -1125,7 +1171,7 @@ client.on('interactionCreate', async interaction => {
     if (index === 0) {
       try {
         const rolesToRemove = roleIds.slice(1);
-        await member.roles.add(rolesToRemove); // تفعيل أو إزالة حسب الكود الأصلي
+        await member.roles.add(rolesToRemove); 
         await interaction.reply({ content: 'تم ازالة اللون', ephemeral: true });
       } catch (e) { await interaction.reply({ content: 'حدث خطأ', ephemeral: true }); }
       return;
